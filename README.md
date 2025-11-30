@@ -163,21 +163,32 @@ generator = setup_seed(seed=42)
 
 ## Supported Models
 
-Pre-configured layer lists for popular models:
+Pre-configured layer exclusion and preservation lists for popular models and architectures:
+
+### Model-Specific Filters
 
 - **T5-XXL**: Text encoder model from Google
 - **Qwen**: Alibaba's language model series
 - **Hunyuan**: Tencent's video diffusion model
-- **Z-Image**: Custom image model
+- **Z-Image**: Custom image diffusion model
 - **WAN**: Waymo autonomous driving models
-- **NeRF**: Neural Radiance Field models
-- **Radiance**: Radiance field rendering
+- **Chroma**: Image manipulation model with distillation layers
+
+### Architecture-Specific Layer Preservation
+
+These are layer patterns to keep in high precision (scale=1.0) for specific model components:
+
+- **Distillation Layers**: Preserve guidance layers and input embeddings for distilled models (Chroma)
+  - Large variant: distilled_guidance_layer, final_layer, img_in, txt_in
+  - Small variant: distilled_guidance_layer
+- **NeRF Layers**: Preserve neural radiance field components (large/small variants)
+- **Radiance Layers**: Preserve radiance field rendering components
 
 ## Performance Tips
 
 1. **Use Block Scaling**: For very large tensors, block-level scaling can provide better accuracy
 2. **Tune num_iter**: Start with 500 iterations and adjust based on results
-3. **Choose Optimizer**: 
+3. **Choose Optimizer**:
    - `"original"`: Fast, good for quick experiments
    - `"adamw"`: Stable, good general choice
    - `"radam"`: Robust, handles varying scales well
