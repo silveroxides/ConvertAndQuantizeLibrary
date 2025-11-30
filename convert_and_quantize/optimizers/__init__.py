@@ -57,74 +57,78 @@ def optimize_with_original(
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 0
-            curr_lr = min(curr_lr * (1.25 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (1.20 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 49 and worse_loss_counter < 75:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 35
-            curr_lr = min(curr_lr * (1.5 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (1.40 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 74 and worse_loss_counter < 100:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 65
-            curr_lr = min(curr_lr * (1.75 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (1.60 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 99 and worse_loss_counter < 150:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 96
-            curr_lr = min(curr_lr * (2.0 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (1.80 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 149 and worse_loss_counter < 200:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 147
-            curr_lr = min(curr_lr * (2.25 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (2.0 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 199 and worse_loss_counter < 300:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 198
-            curr_lr = min(curr_lr * (2.5 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (2.25 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 299 and worse_loss_counter < 400:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 299
-            curr_lr = min(curr_lr * (2.75 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (2.5 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 399 and worse_loss_counter < 500:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 400
-            curr_lr = min(curr_lr * (3.0 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (2.75 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 499:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
             worse_loss_counter = 500
-            curr_lr = min(curr_lr * (3.25 * small_mult), 100.0)
+            curr_lr = min(curr_lr * (3.0 * small_mult), 100.0)
         elif loss.item() > best_loss and worse_loss_counter < 26:
             worse_loss_counter += 1
             curr_lr = max(curr_lr * (0.95 * small_mult), 1e-8)
         elif worse_loss_counter > 25 and worse_loss_counter < 76:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.9625 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.975 * small_mult), 1e-8)
         elif worse_loss_counter > 75 and worse_loss_counter < 151:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.975 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.9875 * small_mult), 1e-8)
         elif worse_loss_counter > 150 and worse_loss_counter < 201:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.9875 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.99 * small_mult), 1e-8)
         elif worse_loss_counter > 200 and worse_loss_counter < 301:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.99 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.995 * small_mult), 1e-8)
         elif worse_loss_counter > 300 and worse_loss_counter < 401:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.99125 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.9975 * small_mult), 1e-8)
         elif worse_loss_counter > 400 and worse_loss_counter < 501:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.9925 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.99875 * small_mult), 1e-8)
         elif worse_loss_counter > 500 and worse_loss_counter < 601:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.99375 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.999 * small_mult), 1e-8)
         elif worse_loss_counter > 600:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.995 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.9995 * small_mult), 1e-8)
+
+        if worse_loss_counter > 1000 and curr_lr > 1e-6:
+            print("      - Learning Rate not converging. Resetting worse_loss_counter to 0.")
+            worse_loss_counter = 0
 
         pbar.set_postfix({
             "loss": f"{loss.item():.3e}",
@@ -133,11 +137,13 @@ def optimize_with_original(
             "worse_count": f"{worse_loss_counter}"
         })
 
-        if loss.item() < 1e-9 or curr_lr < 2e-08 or worse_loss_counter > 1500:
-            if worse_loss_counter > 1500:
+        if loss.item() < 1e-9 or curr_lr < 2e-8 or worse_loss_counter > 1000:
+            if worse_loss_counter > 1000:
                 print("      - Loss has stalled. Stopping.")
+            elif loss.item() < 1e-9:
+                print("      - Loss is too small. Stopping.")
             elif curr_lr < 2e-8:
-                print("      - Learning Rate has bottomed out. Stopping.")
+                print("      - Learning Rate is too small. Stopping.")
             else:
                 print("      - Loss is negligible. Stopping.")
             break

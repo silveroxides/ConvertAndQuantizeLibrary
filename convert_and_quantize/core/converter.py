@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Core quantization converter using learned adaptive rounding with SVD.
 """
@@ -6,7 +7,7 @@ import torch
 import gc
 import math
 from typing import Tuple
-from convert_and_quantize.constants import TARGET_FP8_DTYPE, COMPUTE_DTYPE, SCALE_DTYPE
+from convert_and_quantize.constants import TARGET_FP8_DTYPE, COMPUTE_DTYPE, SCALE_DTYPE, T5XXL_REMOVE_KEY_NAMES
 from convert_and_quantize.optimizers import get_optimizer
 
 
@@ -20,9 +21,9 @@ class LearnedRoundingConverter:
         self,
         optimizer: str = "original",
         num_iter: int = 500,
-        top_p: float = 0.01,
-        min_k: int = 1,
-        max_k: int = 16,
+        top_p: float = 0.25,
+        min_k: int = 8,
+        max_k: int = 64,
         scaling_mode: str = 'tensor',
         block_size: int = 64,
         full_matrix: bool = False,
@@ -157,3 +158,114 @@ class LearnedRoundingConverter:
             torch.cuda.empty_cache()
 
         return W_f8, dequant_scale.to(device=self.device, dtype=SCALE_DTYPE), dequantized_weight_tensor
+
+
+def quantize_model(
+    model_path: str,
+    converter: LearnedRoundingConverter,
+    exclude_layers: str,
+    calib_samples: int = 0,
+    manual_seed: int = -1,
+    t5xxl: bool = False,
+):
+    from convert_and_quantize.utils import get_layer_filters
+    from safetensors.torch import safe_open
+
+    all_avoid_keys, layer_keys = get_layer_filters(exclude_layers)
+    
+    new_tensors = {}
+    calibration_data_cache = {}
+    print("Scanning model and generating simulated calibration data...")
+    if calib_samples > 0:
+        with safe_open(model_path, framework="pt", device="cpu") as f:
+            for key in f.keys():
+                if key.endswith(".weight") and f.get_tensor(key).ndim == 2:
+                    in_features = f.get_tensor(key).shape[1]
+                    if in_features not in calibration_data_cache:
+                        seed_generator = torch.Generator(device='cpu')
+                        if manual_seed != -1:
+                            seed_generator.manual_seed(manual_seed)
+                        
+                        calibration_data_cache[in_features] = torch.randn(
+                            calib_samples, 
+                            in_features, 
+                            dtype=torch.float32, 
+                            generator=seed_generator, 
+                            device='cpu'
+                        )
+    print("Simulated calibration data generated.\n")
+
+    with safe_open(model_path, framework="pt", device="cpu") as f:
+        weight_keys = sorted([key for key in f.keys() if key.endswith('.weight') and f.get_tensor(key).ndim == 2])
+        total_weights = len(weight_keys)
+        print(f"Found {total_weights} weight tensors to potentially process.")
+        
+        for i, key in enumerate(weight_keys):
+            if t5xxl and any(n in key for n in T5XXL_REMOVE_KEY_NAMES):
+                print(f"({i+1}/{total_weights}) Removing T5XXL decoder tensor: {key}")
+                continue
+
+            tensor = f.get_tensor(key)
+
+            process_this_key = True
+            create_scale_key = True
+            skip_reason = ""
+
+            if any(n in key for n in all_avoid_keys):
+                skip_reason = "In avoid list"
+                create_scale_key = False
+                process_this_key = False
+
+            if any(n in key for n in layer_keys):
+                skip_reason = "In high-precision list"
+                create_scale_key = True
+                process_this_key = False
+
+            if not process_this_key:
+                if not create_scale_key:
+                    print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: {skip_reason})")
+                    new_tensors[key] = tensor
+                else:
+                    print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: {skip_reason})")
+                    new_tensors[key] = tensor
+                    base_name = key[:key.rfind('.weight')]
+                    new_tensors[f"{base_name}.scale_weight"] = torch.tensor([1.0], dtype=torch.float32)
+                continue
+
+            print(f"({i+1}/{total_weights}) Processing tensor: {key}")
+            q_tensor, dequant_s, dequant_w = converter.convert(tensor)
+            new_tensors[key] = q_tensor.to('cpu')
+            base_name = key[:key.rfind('.weight')]
+            new_tensors[f"{base_name}.scale_weight"] = dequant_s.to('cpu').detach().clone()
+            
+            if t5xxl:
+                new_tensors[f"{base_name}.scale_input"] = dequant_s.to('cpu').detach().clone()
+
+            bias_key = f"{base_name}.bias"
+            if bias_key in f.keys():
+                original_bias = f.get_tensor(bias_key)
+                if calib_samples > 0 and tensor.shape[1] in calibration_data_cache:
+                    X_calib = calibration_data_cache[tensor.shape[1]].to(converter.device)
+                    W_orig = tensor.to(converter.device, dtype=torch.float32)
+                    W_dequant = dequant_w.to(converter.device, dtype=torch.float32)
+                    
+                    weight_error = W_orig - W_dequant
+                    output_error = X_calib @ weight_error.T
+                    bias_correction = output_error.mean(dim=0)
+                    
+                    new_bias = original_bias.to(converter.device, dtype=torch.float32) - bias_correction
+                    new_tensors[bias_key] = new_bias.to('cpu', dtype=original_bias.dtype)
+                    print(f"    - Original bias mean : {original_bias.mean().item():.6f}\n    - Corrected bias mean: {new_tensors[bias_key].mean().item():.6f}")
+                else:
+                    new_tensors[bias_key] = original_bias
+                    if calib_samples > 0:
+                        print(f"  - WARNING: No calibration data found for {bias_key}. Bias not corrected.")
+
+        for key in f.keys():
+            if key not in new_tensors:
+                new_tensors[key] = f.get_tensor(key)
+
+    if t5xxl:
+        new_tensors["scaled_fp8"] = torch.empty((0), dtype=TARGET_FP8_DTYPE)
+        
+    return new_tensors
