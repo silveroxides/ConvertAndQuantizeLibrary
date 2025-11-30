@@ -5,6 +5,7 @@ import torch
 from safetensors.torch import safe_open, save_file
 from convert_and_quantize import LearnedRoundingConverter
 from convert_and_quantize.utils import get_layer_filters, generate_output_filename
+import argparse
 
 # --- Target Data Types ---
 TARGET_FP8_DTYPE = torch.float8_e4m3fn
@@ -128,4 +129,50 @@ def quantize_and_save(model_path: str, num_iter: int, exclude_layers: str, outpu
         
     save_file(new_tensors, output)
     print(f"Saved quantized model to: {output}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Quantization tools")
+    subparsers = parser.add_subparsers(dest="command")
+
+    # Test command
+    test_parser = subparsers.add_parser("test", help="Test quantization on a model")
+    test_parser.add_argument("model_path", help="Path to the .safetensors model file")
+    test_parser.add_argument("--num-iter", type=int, default=50, help="Number of iterations")
+    test_parser.add_argument("--exclude-layers", type=str, default="zimage", help="Layer exclusion filter")
+
+    # Save command
+    save_parser = subparsers.add_parser("save", help="Quantize and save a model")
+    save_parser.add_argument("model_path", help="Path to the .safetensors model file")
+    save_parser.add_argument("--num-iter", type=int, default=50, help="Number of iterations")
+    save_parser.add_argument("--exclude-layers", type=str, default="zimage", help="Layer exclusion filter")
+    save_parser.add_argument("--output", type=str, default=None, help="Output file path")
+    save_parser.add_argument("--scaling-mode", type=str, default="tensor", help="Scaling mode")
+    save_parser.add_argument("--min-k", type=int, default=256, help="Minimum k")
+    save_parser.add_argument("--max-k", type=int, default=768, help="Maximum k")
+    save_parser.add_argument("--top-p", type=float, default=0.1, help="Top p")
+    save_parser.add_argument("--lr", type=float, default=8.098e-3, help="Learning rate")
+
+    args = parser.parse_args()
+
+    if args.command == "test":
+        test_quantization(
+            model_path=args.model_path,
+            num_iter=args.num_iter,
+            exclude_layers=args.exclude_layers,
+        )
+    elif args.command == "save":
+        quantize_and_save(
+            model_path=args.model_path,
+            num_iter=args.num_iter,
+            exclude_layers=args.exclude_layers,
+            output=args.output,
+            scaling_mode=args.scaling_mode,
+            min_k=args.min_k,
+            max_k=args.max_k,
+            top_p=args.top_p,
+            lr=args.lr,
+        )
+
+if __name__ == "__main__":
+    main()
 
