@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include pyproject.toml
+include setup.py
+recursive-include convert_and_quantize *.py
+recursive-include tests *.py
+recursive-include examples *.py
+recursive-include docs *.md
