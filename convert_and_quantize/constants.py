@@ -45,18 +45,19 @@ ZIMAGE_AVOID_KEY_NAMES = [
     "ffn_norm1", "ffn_norm2", "k_norm", "q_norm", "x_pad_token"
 ]
 
-# --- Model-Specific Layer Preservation Lists ---
+# Radiance field exclusions (completely skip, no scale_weight)
+RADIANCE_AVOID_KEY_NAMES = ["img_in_patch", "nerf_final_layer_conv"]
 
-# Distillation layers
+# --- Model-Specific Layer Preservation Lists ---
+# These layers are kept in high precision (scale_weight = 1.0, not quantized)
+
+# Distillation layers for Chroma model
 DISTILL_LAYER_KEYNAMES_LARGE = ["distilled_guidance_layer", "final_layer", "img_in", "txt_in"]
 DISTILL_LAYER_KEYNAMES_SMALL = ["distilled_guidance_layer"]
 
-# NeRF layers
+# NeRF layers (variants for different configurations)
 NERF_LAYER_KEYNAMES_LARGE = ["distilled_guidance_layer", "nerf_blocks", "nerf_image_embedder", "txt_in"]
 NERF_LAYER_KEYNAMES_SMALL = ["distilled_guidance_layer", "nerf_blocks", "nerf_image_embedder"]
-
-# Radiance field layers
-RADIANCE_LAYER_KEYNAMES = ["img_in_patch", "nerf_final_layer_conv"]
 
 # WAN (Waymo) layers
 WAN_LAYER_KEYNAMES = [

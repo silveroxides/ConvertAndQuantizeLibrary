@@ -14,32 +14,26 @@ Advanced quantization framework for neural networks - Convert models to FP8 with
 
 ## Installation
 
-This package requires PyTorch to be installed. You can install it with a specific CUDA backend or for CPU-only.
+This package requires PyTorch. For CUDA support, you must install it separately before installing this package.
 
-### PyTorch Backends
+### 1. Install PyTorch
 
-Choose one of the following commands to install PyTorch with the desired backend before installing this package.
+Choose a requirements file from the `requirements/` directory that matches your CUDA version, or use `cpu.txt` for a CPU-only installation.
 
 ```bash
-# For CUDA 11.8
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# Example for CUDA 12.8
+pip install -r requirements/cu128.txt
 
-# For CUDA 12.1
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-# For CUDA 12.4
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# For CPU-only
-pip install torch torchvision torchaudio
+# Example for CPU-only
+pip install -r requirements/cpu.txt
 ```
 
-*Note: As of late 2025, official PyTorch binaries are not available for CUDA 12.6, 12.8, or 13.0. Please check the [PyTorch website](https://pytorch.org/) for the latest supported versions.*
+### 2. Install the Library
 
-### Library Installation
+Once PyTorch is installed, you can install this package from PyPI or from source.
 
 ```bash
-# Basic installation (after installing PyTorch)
+# Basic installation
 pip install convert-and-quantize
 
 # With optional dependencies

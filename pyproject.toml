@@ -34,41 +34,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cu118 = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
-cu121 = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
-cu124 = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
-cu126 = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
-cu128 = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
-cu130 = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
-cpu = [
-    "torch>=1.13.0",
-    "torchvision",
-    "torchaudio",
-]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
