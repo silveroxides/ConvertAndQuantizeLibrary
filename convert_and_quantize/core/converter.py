@@ -48,7 +48,7 @@ class LearnedRoundingConverter:
         self.max_k = max_k
         self.scaling_mode = scaling_mode
         self.block_size = block_size
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.optimizer_choice = optimizer
         self.full_matrix = full_matrix
         self.optimizer_kwargs = kwargs
@@ -70,7 +70,7 @@ class LearnedRoundingConverter:
         Returns:
             Tuple of (quantized_tensor, dequant_scale, dequantized_weight_tensor)
         """
-        W_float32 = W_orig.to(self.device, dtype=COMPUTE_DTYPE)
+        W_float32 = W_orig.to(dtype=COMPUTE_DTYPE, device=self.device)
 
         # Handle zero tensors
         if torch.all(W_float32 == 0):
@@ -142,14 +142,14 @@ class LearnedRoundingConverter:
 
         # Convert to FP8
         with torch.no_grad():
-            W_f8 = final_tensor_scaled.to(TARGET_FP8_DTYPE)
+            W_f8 = final_tensor_scaled.to(dtype=TARGET_FP8_DTYPE)
             assert compact_scale is not None, "compact_scale should never be None at this point"
             if current_scaling_mode == 'block':
                 dequant_scale = compact_scale.reciprocal()
             else:
                 dequant_scale = compact_scale.reciprocal().reshape(1)
 
-            dequantized_weight_tensor = (W_f8.to(self.device, dtype=COMPUTE_DTYPE) / scale)
+            dequantized_weight_tensor = (W_f8.to(dtype=COMPUTE_DTYPE) / scale)
 
         del W_float32, scale, U, Vh, U_k, Vh_k, final_tensor_scaled, compact_scale
         gc.collect()
