@@ -23,7 +23,7 @@ from convert_and_quantize.utils import (
     get_fp8_constants,
     clean_gpu_memory,
     setup_seed,
-    should_process_layer,
+    get_layer_filters,
     generate_output_filename,
 )
 from convert_and_quantize.optimizers import get_optimizer
@@ -40,7 +40,7 @@ __all__ = [
     "get_fp8_constants",
     "clean_gpu_memory",
     "setup_seed",
-    "should_process_layer",
+    "get_layer_filters",
     "generate_output_filename",
     "get_optimizer",
 ]

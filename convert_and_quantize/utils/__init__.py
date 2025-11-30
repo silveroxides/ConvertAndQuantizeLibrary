@@ -4,6 +4,7 @@ Utility functions for quantization operations.
 
 import torch
 import gc
+import os
 from typing import Tuple, Dict, Optional, Union
 
 
@@ -63,132 +64,91 @@ def setup_seed(seed: int, device: Optional[str] = None) -> torch.Generator:
     return generator
 
 
-def should_process_layer(
-    key: str,
-    t5xxl: bool = False,
-    keep_distillation_large: bool = False,
-    keep_distillation_small: bool = False,
-    keep_nerf_large: bool = False,
-    keep_nerf_small: bool = False,
-    radiance: bool = False,
-    wan: bool = False,
-    qwen: bool = False,
-    hunyuan: bool = False,
-    zimage_l: bool = False,
-    zimage_s: bool = False,
-) -> Tuple[bool, bool, str]:
+def get_layer_filters(filter_name: str) -> Tuple[list, list]:
     """
-    Determine if a layer should be processed and if scale key should be created.
-    
+    Get layer exclusion and preservation filters based on a filter name.
+
     Args:
-        key: Layer key name
-        t5xxl: T5XXL model flag
-        keep_distillation_large: Keep large distillation layers
-        keep_distillation_small: Keep small distillation layers
-        keep_nerf_large: Keep large NeRF layers
-        keep_nerf_small: Keep small NeRF layers
-        radiance: Radiance field model flag
-        wan: WAN model flag
-        qwen: Qwen model flag
-        hunyuan: Hunyuan model flag
-        zimage_l: Z-Image large flag
-        zimage_s: Z-Image small flag
-        
+        filter_name: Predefined filter name or custom comma-separated list.
+
     Returns:
-        Tuple of (should_process, should_create_scale, skip_reason)
+        Tuple of (all_avoid_keys, layer_keys)
     """
     from convert_and_quantize.constants import (
-        T5XXL_REMOVE_KEY_NAMES, AVOID_KEY_NAMES, RADIANCE_LAYER_KEYNAMES,
-        WAN_LAYER_KEYNAMES, QWEN_AVOID_KEY_NAMES, QWEN_LAYER_KEYNAMES,
-        ZIMAGE_AVOID_KEY_NAMES, ZIMAGE_LAYER_KEYNAMES, HUNYUAN_AVOID_KEY_NAMES,
+        AVOID_KEY_NAMES, ZIMAGE_AVOID_KEY_NAMES, ZIMAGE_LAYER_KEYNAMES,
+        QWEN_AVOID_KEY_NAMES, QWEN_LAYER_KEYNAMES, HUNYUAN_AVOID_KEY_NAMES,
         DISTILL_LAYER_KEYNAMES_LARGE, DISTILL_LAYER_KEYNAMES_SMALL,
-        NERF_LAYER_KEYNAMES_LARGE, NERF_LAYER_KEYNAMES_SMALL
+        NERF_LAYER_KEYNAMES_LARGE, NERF_LAYER_KEYNAMES_SMALL,
+        RADIANCE_AVOID_KEY_NAMES, WAN_LAYER_KEYNAMES
     )
-    
-    # Check removals
-    if t5xxl and any(n in key for n in T5XXL_REMOVE_KEY_NAMES):
-        return False, False, "T5XXL decoder/head removal"
-    
-    # Check exclusions
-    if t5xxl and any(n in key for n in AVOID_KEY_NAMES):
-        return False, False, "T5XXL exclusion"
-    if radiance and any(n in key for n in RADIANCE_LAYER_KEYNAMES):
-        return False, False, "Radiance exclusion"
-    if wan and any(n in key for n in AVOID_KEY_NAMES):
-        return False, False, "WAN exclusion"
-    if qwen and any(n in key for n in QWEN_AVOID_KEY_NAMES):
-        return False, False, "Qwen exclusion"
-    if zimage_l and any(n in key for n in ZIMAGE_AVOID_KEY_NAMES):
-        return False, False, "Z-Image exclusion"
-    if zimage_s and any(n in key for n in ZIMAGE_AVOID_KEY_NAMES):
-        return False, False, "Z-Image exclusion"
-    if hunyuan and any(n in key for n in HUNYUAN_AVOID_KEY_NAMES):
-        return False, False, "Hunyuan Video exclusion"
-    
-    # Check preservations
-    if keep_distillation_large and any(n in key for n in DISTILL_LAYER_KEYNAMES_LARGE):
-        return False, True, "Distillation layer (large)"
-    if keep_distillation_small and any(n in key for n in DISTILL_LAYER_KEYNAMES_SMALL):
-        return False, True, "Distillation layer (small)"
-    if keep_nerf_large and any(n in key for n in NERF_LAYER_KEYNAMES_LARGE):
-        return False, True, "NeRF layer (large)"
-    if keep_nerf_small and any(n in key for n in NERF_LAYER_KEYNAMES_SMALL):
-        return False, True, "NeRF layer (small)"
-    if wan and any(n in key for n in WAN_LAYER_KEYNAMES):
-        return False, True, "WAN layer preservation"
-    if qwen and any(n in key for n in QWEN_LAYER_KEYNAMES):
-        return False, True, "Qwen layer preservation"
-    if zimage_l and any(n in key for n in ZIMAGE_LAYER_KEYNAMES):
-        return False, True, "Z-Image layer preservation"
-    
-    return True, True, ""
+
+    filter_name = filter_name.lower().strip()
+
+    if filter_name == "zimage":
+        layer_keys = ZIMAGE_LAYER_KEYNAMES
+        all_avoid_keys = ZIMAGE_AVOID_KEY_NAMES + AVOID_KEY_NAMES
+    elif filter_name == "qwen":
+        layer_keys = QWEN_LAYER_KEYNAMES
+        all_avoid_keys = QWEN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
+    elif filter_name == "hunyuan":
+        layer_keys = []
+        all_avoid_keys = HUNYUAN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
+    elif filter_name == "chroma_l":
+        layer_keys = DISTILL_LAYER_KEYNAMES_LARGE
+        all_avoid_keys = AVOID_KEY_NAMES
+    elif filter_name == "chroma_s":
+        layer_keys = DISTILL_LAYER_KEYNAMES_SMALL
+        all_avoid_keys = AVOID_KEY_NAMES
+    elif filter_name == "nerf_l":
+        layer_keys = NERF_LAYER_KEYNAMES_LARGE
+        all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
+    elif filter_name == "nerf_s":
+        layer_keys = NERF_LAYER_KEYNAMES_SMALL
+        all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
+    elif filter_name == "radiance":
+        layer_keys = []
+        all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
+    elif filter_name == "wan":
+        layer_keys = WAN_LAYER_KEYNAMES
+        all_avoid_keys = AVOID_KEY_NAMES
+    else:
+        # Custom comma-separated list
+        layer_keys = []
+        all_avoid_keys = AVOID_KEY_NAMES + [k.strip() for k in filter_name.split(",") if k.strip()]
+
+    return all_avoid_keys, layer_keys
 
 
 def generate_output_filename(
     input_file: str,
     target_dtype: torch.dtype,
     scaling_mode: str,
-    t5xxl: bool = False,
-    keep_distillation_large: bool = False,
-    keep_distillation_small: bool = False,
-    keep_nerf_large: bool = False,
-    keep_nerf_small: bool = False,
-    radiance: bool = False,
+    filter_name: str,
     min_k: int = 1,
     max_k: int = 16,
     top_p: float = 0.01,
     lr: float = 1e-2,
 ) -> str:
     """
-    Generate output filename based on configuration.
-    
+    Generate output filename for quantized model.
+
     Args:
         input_file: Input file path
-        target_dtype: Target FP8 dtype
-        scaling_mode: Scaling mode (tensor/block)
-        Additional flags and parameters for naming
-        
+        target_dtype: Target data type
+        scaling_mode: Scaling mode
+        filter_name: Filter name
+        min_k: Minimum number of keys to keep
+        max_k: Maximum number of keys to keep
+        top_p: Top-p probability
+        lr: Learning rate
+
     Returns:
-        Generated output filename
+        Output filename
     """
-    import os
-    
     base = os.path.splitext(input_file)[0]
     fp8_str = target_dtype.__str__().split('.')[-1]
     
-    flags = ""
-    if t5xxl:
-        flags += "_t5"
-    if keep_distillation_large:
-        flags += "_nodist_l"
-    if keep_distillation_small:
-        flags += "_nodist_s"
-    if keep_nerf_large:
-        flags += "_nonerf_l"
-    if keep_nerf_small:
-        flags += "_nonerf_s"
-    if radiance:
-        flags += "_norad"
+    flags = f"_{filter_name}"
     
     # Format learning rate in scientific notation
     lr_str = f"{lr:.2e}"
