@@ -18,14 +18,21 @@ This package requires PyTorch. For CUDA support, you must install it separately 
 
 ### 1. Install PyTorch
 
-Choose a requirements file from the `requirements/` directory that matches your CUDA version, or use `cpu.txt` for a CPU-only installation.
+
+You can use a requirements file from the `requirements/` directory that matches your CUDA version, or use `cpu.txt` for a CPU-only installation.
+or you can use the index-url flag for CUDA version.
 
 ```bash
-# Example for CUDA 12.8
+# Example using requirements file for CUDA 12.8
 pip install -r requirements/cu128.txt
 
-# Example for CPU-only
+# Example using index url for CUDA 12.8
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+
+# Examples for CPU-only
 pip install -r requirements/cpu.txt
+or
+pip install torch
 ```
 
 ### 2. Install the Library
