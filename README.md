@@ -14,24 +14,42 @@ Advanced quantization framework for neural networks - Convert models to FP8 with
 
 ## Installation
 
-### Basic Installation
+This package requires PyTorch to be installed. You can install it with a specific CUDA backend or for CPU-only.
+
+### PyTorch Backends
+
+Choose one of the following commands to install PyTorch with the desired backend before installing this package.
+
 ```bash
-pip install convert-and-quantize
+# For CUDA 11.8
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# For CUDA 12.1
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# For CUDA 12.4
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+
+# For CPU-only
+pip install torch torchvision torchaudio
 ```
 
-### With Optional Dependencies
+*Note: As of late 2025, official PyTorch binaries are not available for CUDA 12.6, 12.8, or 13.0. Please check the [PyTorch website](https://pytorch.org/) for the latest supported versions.*
+
+### Library Installation
+
 ```bash
-# For ProdigyPlus optimizer support
-pip install convert-and-quantize[prodigy]
+# Basic installation (after installing PyTorch)
+pip install convert-and-quantize
 
-# For development and testing
-pip install convert-and-quantize[dev]
-
-# All optional dependencies
-pip install convert-and-quantize[all]
+# With optional dependencies
+pip install convert-and-quantize[prodigy] # For ProdigyPlus optimizer
+pip install convert-and-quantize[dev]     # For development
+pip install convert-and-quantize[all]     # All optional dependencies
 ```
 
 ### Development Installation
+
 ```bash
 git clone https://github.com/silveroxides/ConvertAndQuantizeLibrary
 cd ConvertAndQuantizeLibrary
@@ -113,7 +131,7 @@ save_file(new_tensors, "model_fp8.safetensors")
 
 ## Project Structure
 
-```
+```plaintext
 convert_and_quantize/
 ├── __init__.py           # Package initialization and public API
 ├── constants.py          # Configuration constants and model-specific lists
@@ -131,6 +149,7 @@ convert_and_quantize/
 ### Main Classes
 
 #### `LearnedRoundingConverter`
+
 Core quantization converter using learned adaptive rounding with SVD optimization.
 
 ```python
@@ -146,6 +165,7 @@ quantized, scale, dequantized = converter.convert(weight_tensor)
 ### Utility Functions
 
 #### `get_device()`
+
 Get the appropriate device for computation.
 
 ```python
@@ -154,6 +174,7 @@ device = get_device()  # Returns 'cuda' or 'cpu'
 ```
 
 #### `setup_seed()`
+
 Set up reproducible random seed.
 
 ```python
