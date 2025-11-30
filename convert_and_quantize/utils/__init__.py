@@ -190,7 +190,10 @@ def generate_output_filename(
     if radiance:
         flags += "_norad"
     
+    # Format learning rate in scientific notation
+    lr_str = f"{lr:.2e}"
+    
     return (
         f"{base}_{fp8_str}_{scaling_mode}{flags}_"
-        f"k{min_k}-{max_k}_p{top_p}_lr{lr}.safetensors"
+        f"k{min_k}-{max_k}_p{top_p}_lr{lr_str}.safetensors"
     )

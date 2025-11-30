@@ -21,19 +21,12 @@ from convert_and_quantize.constants import (
     AVOID_KEY_NAMES, ZIMAGE_AVOID_KEY_NAMES, ZIMAGE_LAYER_KEYNAMES,
     QWEN_AVOID_KEY_NAMES, HUNYUAN_AVOID_KEY_NAMES
 )
+from convert_and_quantize.utils import generate_output_filename
 
 # From convert_fp8_svd_learn_w_blockwise.py
 TARGET_FP8_DTYPE = torch.float8_e4m3fn
 COMPUTE_DTYPE = torch.float32
 SCALE_DTYPE = torch.float32
-
-
-def generate_output_filename(input_path: str, scaling_mode: str, min_k: int, max_k: int, top_p: float, lr: float) -> str:
-    """Generate output filename matching original script format."""
-    base = os.path.splitext(input_path)[0]
-    fp8_str = TARGET_FP8_DTYPE.__str__().split('.')[-1]
-    output_file = f"{base}_{fp8_str}_{scaling_mode}_k{min_k}-{max_k}_p{top_p}_lr{lr}.safetensors"
-    return output_file
 
 
 def main():
@@ -225,11 +218,12 @@ def main():
     else:
         output_file = generate_output_filename(
             model_path,
+            TARGET_FP8_DTYPE,
             args.scaling_mode,
-            args.min_k,
-            args.max_k,
-            args.top_p,
-            args.lr
+            min_k=args.min_k,
+            max_k=args.max_k,
+            top_p=args.top_p,
+            lr=args.lr
         )
 
     print(f"\n{'='*60}")
