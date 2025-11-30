@@ -175,6 +175,7 @@ def quantize_model(
     
     new_tensors = {}
     calibration_data_cache = {}
+    print("Scanning model and generating simulated calibration data...")
     if calib_samples > 0:
         with safe_open(model_path, framework="pt", device="cpu") as f:
             for key in f.keys():
@@ -192,28 +193,46 @@ def quantize_model(
                             generator=seed_generator, 
                             device='cpu'
                         )
+    print("Simulated calibration data generated.\n")
 
     with safe_open(model_path, framework="pt", device="cpu") as f:
-        for key in f.keys():
+        weight_keys = sorted([key for key in f.keys() if key.endswith('.weight') and f.get_tensor(key).ndim == 2])
+        total_weights = len(weight_keys)
+        print(f"Found {total_weights} weight tensors to potentially process.")
+        
+        for i, key in enumerate(weight_keys):
             if t5xxl and any(n in key for n in T5XXL_REMOVE_KEY_NAMES):
+                print(f"({i+1}/{total_weights}) Removing T5XXL decoder tensor: {key}")
                 continue
 
             tensor = f.get_tensor(key)
 
-            if not key.endswith(".weight") or tensor.ndim != 2:
-                new_tensors[key] = tensor
-                continue
+            process_this_key = True
+            create_scale_key = True
+            skip_reason = ""
 
             if any(n in key for n in all_avoid_keys):
-                new_tensors[key] = tensor
-                continue
+                skip_reason = "In avoid list"
+                create_scale_key = False
+                process_this_key = False
 
             if any(n in key for n in layer_keys):
-                new_tensors[key] = tensor
-                base_name = key[:key.rfind('.weight')]
-                new_tensors[f"{base_name}.scale_weight"] = torch.tensor([1.0], dtype=torch.float32)
+                skip_reason = "In high-precision list"
+                create_scale_key = True
+                process_this_key = False
+
+            if not process_this_key:
+                if not create_scale_key:
+                    print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: {skip_reason})")
+                    new_tensors[key] = tensor
+                else:
+                    print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: {skip_reason})")
+                    new_tensors[key] = tensor
+                    base_name = key[:key.rfind('.weight')]
+                    new_tensors[f"{base_name}.scale_weight"] = torch.tensor([1.0], dtype=torch.float32)
                 continue
 
+            print(f"({i+1}/{total_weights}) Processing tensor: {key}")
             q_tensor, dequant_s, dequant_w = converter.convert(tensor)
             new_tensors[key] = q_tensor.to('cpu')
             base_name = key[:key.rfind('.weight')]
@@ -236,9 +255,16 @@ def quantize_model(
                     
                     new_bias = original_bias.to(converter.device, dtype=torch.float32) - bias_correction
                     new_tensors[bias_key] = new_bias.to('cpu', dtype=original_bias.dtype)
+                    print(f"    - Original bias mean : {original_bias.mean().item():.6f}\n    - Corrected bias mean: {new_tensors[bias_key].mean().item():.6f}")
                 else:
                     new_tensors[bias_key] = original_bias
-    
+                    if calib_samples > 0:
+                        print(f"  - WARNING: No calibration data found for {bias_key}. Bias not corrected.")
+
+        for key in f.keys():
+            if key not in new_tensors:
+                new_tensors[key] = f.get_tensor(key)
+
     if t5xxl:
         new_tensors["scaled_fp8"] = torch.empty((0), dtype=TARGET_FP8_DTYPE)
         
