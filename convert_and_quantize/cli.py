@@ -5,6 +5,7 @@ import torch
 from safetensors.torch import safe_open, save_file
 from convert_and_quantize import LearnedRoundingConverter
 from convert_and_quantize.utils import get_layer_filters, generate_output_filename
+from convert_and_quantize.constants import T5XXL_REMOVE_KEY_NAMES
 import argparse
 
 # --- Target Data Types ---
@@ -13,84 +14,43 @@ COMPUTE_DTYPE = torch.float32
 SCALE_DTYPE = torch.float32
 
 def test_quantization(model_path: str, num_iter: int, exclude_layers: str, optimizer: str, block_size: int, full_matrix: bool, manual_seed: int):
-    """
-    Test quantization on a model and report error metrics.
-    """
-    if manual_seed != -1:
-        from convert_and_quantize.utils import setup_seed
-        setup_seed(manual_seed)
+    from convert_and_quantize.core.converter import quantize_model
+    from safetensors.torch import safe_open
 
-    all_avoid_keys, layer_keys = get_layer_filters(exclude_layers)
-    
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Device: {device}")
-    print(f"Using exclusion filter: {exclude_layers}")
-    
     converter = LearnedRoundingConverter(
         optimizer=optimizer,
         num_iter=num_iter,
-        top_p=0.1,
-        min_k=256,
-        max_k=768,
-        scaling_mode="tensor",
+        scaling_mode="tensor", # test runner always uses tensor scaling
         block_size=block_size,
         full_matrix=full_matrix,
-        lr=8.0980000000000011e-3,
     )
-    
-    quantized_count = 0
-    skipped_count = 0
-    total_tensors = 0
-    stats = []
-    
+
     with safe_open(model_path, framework="pt", device="cpu") as f:
-        keys = list(f.keys())
-        for key in keys:
-            total_tensors += 1
-            tensor = f.get_tensor(key)
-            
-            if not key.endswith(".weight") or tensor.ndim != 2:
-                skipped_count += 1
-                continue
-            
-            if any(n in key for n in all_avoid_keys):
-                skipped_count += 1
-                continue
-            
-            if any(n in key for n in layer_keys):
-                stats.append((key, 0.0, True))
-                quantized_count += 1
-                skipped_count += 1
-                continue
-            
-            t = tensor.to(device)
-            q, scale, deq = converter.convert(t)
-            error = (t.to(dtype=deq.dtype, device=deq.device) - deq).abs().mean().item()
+        original_tensors = {k: f.get_tensor(k) for k in f.keys()}
+    quantized_tensors = quantize_model(
+        model_path=model_path,
+        converter=converter,
+        exclude_layers=exclude_layers,
+    )
+
+    stats = []
+    for key, q_tensor in quantized_tensors.items():
+        if key in original_tensors and q_tensor.dtype == torch.float8_e4m3fn:
+            o_tensor = original_tensors[key].to(converter.device)
+            scale_key = key.replace(".weight", ".scale_weight")
+            scale = quantized_tensors[scale_key].to(converter.device)
+            dequantized = (q_tensor.to(converter.device, dtype=torch.float32) / scale).to(o_tensor.dtype)
+            error = (o_tensor - dequantized).abs().mean().item()
             stats.append((key, error, False))
-            quantized_count += 1
-            
-    print(f"Total tensors seen: {total_tensors}")
-    print(f"Quantized tensors: {quantized_count}")
-    print(f"Skipped tensors: {skipped_count}")
-    
+
     if stats:
         mean_error = sum(s[1] for s in stats) / len(stats)
-        high_precision_count = sum(1 for s in stats if s[2])
         print(f"Mean Absolute Error: {mean_error:.6e}")
-        print(f"High precision tensors: {high_precision_count}")
 
-def quantize_and_save(model_path: str, num_iter: int, exclude_layers: str, output: str, scaling_mode: str, min_k: int, max_k: int, top_p: float, lr: float, optimizer: str, block_size: int, full_matrix: bool, manual_seed: int, calib_samples: int):
-    """
-    Quantize a model and save the result.
-    """
-    if manual_seed != -1:
-        from convert_and_quantize.utils import setup_seed
-        setup_seed(manual_seed)
+def quantize_and_save(model_path: str, num_iter: int, exclude_layers: str, output: str, scaling_mode: str, min_k: int, max_k: int, top_p: float, lr: float, optimizer: str, block_size: int, full_matrix: bool, manual_seed: int, calib_samples: int, t5xxl: bool):
+    from convert_and_quantize.core.converter import quantize_model
+    from safetensors.torch import save_file
 
-    all_avoid_keys, layer_keys = get_layer_filters(exclude_layers)
-    
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
     converter = LearnedRoundingConverter(
         optimizer=optimizer,
         num_iter=num_iter,
@@ -102,31 +62,16 @@ def quantize_and_save(model_path: str, num_iter: int, exclude_layers: str, outpu
         full_matrix=full_matrix,
         lr=lr,
     )
+
+    quantized_tensors = quantize_model(
+        model_path=model_path,
+        converter=converter,
+        exclude_layers=exclude_layers,
+        calib_samples=calib_samples,
+        manual_seed=manual_seed,
+        t5xxl=t5xxl,
+    )
     
-    new_tensors = {}
-    with safe_open(model_path, framework="pt", device="cpu") as f:
-        for key in f.keys():
-            tensor = f.get_tensor(key)
-            
-            if not key.endswith(".weight") or tensor.ndim != 2:
-                new_tensors[key] = tensor
-                continue
-            
-            if any(n in key for n in all_avoid_keys):
-                new_tensors[key] = tensor
-                continue
-            
-            if any(n in key for n in layer_keys):
-                new_tensors[key] = tensor
-                base_name = key[:key.rfind('.weight')]
-                new_tensors[f"{base_name}.scale_weight"] = torch.tensor([1.0], dtype=SCALE_DTYPE)
-                continue
-            
-            q_tensor, dequant_s, dequant_w = converter.convert(tensor)
-            new_tensors[key] = q_tensor.to(device='cpu')
-            base_name = key[:key.rfind('.weight')]
-            new_tensors[f"{base_name}.scale_weight"] = dequant_s.to(device='cpu').detach().clone()
-            
     if not output:
         output = generate_output_filename(
             model_path,
@@ -139,7 +84,7 @@ def quantize_and_save(model_path: str, num_iter: int, exclude_layers: str, outpu
             lr
         )
         
-    save_file(new_tensors, output)
+    save_file(quantized_tensors, output)
     print(f"Saved quantized model to: {output}")
 
 def main():
@@ -179,11 +124,12 @@ def main():
     save_parser.add_argument("--max-k", type=int, default=768, help="Maximum number of SVD components.")
     save_parser.add_argument("--top-p", type=float, default=0.1, help="Proportion of SVD components to use.")
     save_parser.add_argument("--lr", type=float, default=8.098e-3, help="Learning rate for the optimizer.")
-    save_parser.add_argument("--optimizer", type=str, default="original", choices=["original", "adamw", "radam"], help="Optimizer to use.")
+    save_parser.add_argument("--optimizer", type=str, default="original", choices=["original", "adamw", "radam", "ppsf"], help="Optimizer to use.")
     save_parser.add_argument("--block-size", type=int, default=64, help="Block size for 'block' scaling mode.")
     save_parser.add_argument("--full-matrix", action="store_true", help="Use full SVD matrix.")
     save_parser.add_argument("--manual-seed", type=int, default=-1, help="Manual seed for reproducibility.")
     save_parser.add_argument("--calib-samples", type=int, default=0, help="Number of calibration samples for bias correction (placeholder).")
+    save_parser.add_argument("--t5xxl", action="store_true", help="Apply T5-XXL specific logic.")
 
     args = parser.parse_args()
 
@@ -213,6 +159,7 @@ def main():
             full_matrix=args.full_matrix,
             manual_seed=args.manual_seed,
             calib_samples=args.calib_samples,
+            t5xxl=args.t5xxl,
         )
 
 if __name__ == "__main__":
