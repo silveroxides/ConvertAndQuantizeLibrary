@@ -46,20 +46,22 @@ def clean_gpu_memory(device: Optional[str] = None):
         torch.cuda.empty_cache()
 
 
-def setup_seed(seed: int, device: Optional[str] = None) -> torch.Generator:
+def setup_seed(seed: int, device: Optional[str] = None, generator: Optional[torch.Generator] = None) -> torch.Generator:
     """
     Set up reproducible random seed.
     
     Args:
         seed: Random seed value
         device: Device for generator
+        generator: Optional existing generator
         
     Returns:
         Generator object
     """
-    if device is None:
-        device = get_device()
-    generator = torch.Generator(device=device)
+    if generator is None:
+        if device is None:
+            device = get_device()
+        generator = torch.Generator(device=device)
     generator.manual_seed(seed)
     return generator
 
@@ -157,3 +159,87 @@ def generate_output_filename(
         f"{base}_{fp8_str}_{scaling_mode}{flags}_"
         f"k{min_k}-{max_k}_p{top_p}_lr{lr_str}.safetensors"
     )
+
+
+def should_process_layer(
+    key: str,
+    t5xxl: bool = False,
+    keep_distillation_large: bool = False,
+    keep_distillation_small: bool = False,
+    keep_nerf_large: bool = False,
+    keep_nerf_small: bool = False,
+    radiance: bool = False,
+    wan: bool = False,
+    qwen: bool = False,
+    hunyuan: bool = False,
+    zimage_l: bool = False,
+    zimage_s: bool = False,
+) -> tuple:
+    """
+    Decide whether to process (quantize) a layer.
+
+    Returns:
+        (should_process: bool, create_scale: bool, reason: str)
+    """
+    from convert_and_quantize.constants import (
+        AVOID_KEY_NAMES,
+        ZIMAGE_AVOID_KEY_NAMES,
+        ZIMAGE_LAYER_KEYNAMES,
+        QWEN_AVOID_KEY_NAMES,
+        QWEN_LAYER_KEYNAMES,
+        HUNYUAN_AVOID_KEY_NAMES,
+        DISTILL_LAYER_KEYNAMES_LARGE,
+        DISTILL_LAYER_KEYNAMES_SMALL,
+        NERF_LAYER_KEYNAMES_LARGE,
+        NERF_LAYER_KEYNAMES_SMALL,
+        RADIANCE_AVOID_KEY_NAMES,
+        WAN_LAYER_KEYNAMES,
+        T5XXL_REMOVE_KEY_NAMES,
+    )
+
+    # Build avoid and high-precision lists based on flags
+    all_avoid = list(AVOID_KEY_NAMES)
+    layer_keys = []
+
+    if zimage_l:
+        layer_keys = ZIMAGE_LAYER_KEYNAMES
+        all_avoid = ZIMAGE_AVOID_KEY_NAMES + all_avoid
+    elif zimage_s:
+        layer_keys = ZIMAGE_LAYER_KEYNAMES
+        all_avoid = ZIMAGE_AVOID_KEY_NAMES + all_avoid
+    if qwen:
+        layer_keys = QWEN_LAYER_KEYNAMES
+        all_avoid = QWEN_AVOID_KEY_NAMES + all_avoid
+    if hunyuan:
+        all_avoid = HUNYUAN_AVOID_KEY_NAMES + all_avoid
+    if wan:
+        layer_keys = WAN_LAYER_KEYNAMES
+        all_avoid = AVOID_KEY_NAMES + all_avoid
+    if keep_distillation_large:
+        layer_keys = DISTILL_LAYER_KEYNAMES_LARGE
+        all_avoid = AVOID_KEY_NAMES + all_avoid
+    if keep_distillation_small:
+        layer_keys = DISTILL_LAYER_KEYNAMES_SMALL
+        all_avoid = AVOID_KEY_NAMES + all_avoid
+    if keep_nerf_large:
+        layer_keys = NERF_LAYER_KEYNAMES_LARGE
+        all_avoid = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES + all_avoid
+    if keep_nerf_small:
+        layer_keys = NERF_LAYER_KEYNAMES_SMALL
+        all_avoid = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES + all_avoid
+    if radiance:
+        all_avoid = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES + all_avoid
+    if t5xxl:
+        # T5-XXL has some decoder tensors that are removed entirely
+        if any(n in key for n in T5XXL_REMOVE_KEY_NAMES):
+            return False, False, "T5XXL remove list"
+
+    # Check avoid list
+    if any(n in key for n in all_avoid):
+        return False, False, "In avoid list"
+
+    # Check high-precision list
+    if any(n in key for n in layer_keys):
+        return False, True, "In high-precision list"
+
+    return True, True, ""

@@ -6,9 +6,10 @@ Core quantization converter using learned adaptive rounding with SVD.
 import torch
 import gc
 import math
-from typing import Tuple
+from typing import Tuple, Optional
 from convert_and_quantize.constants import TARGET_FP8_DTYPE, COMPUTE_DTYPE, SCALE_DTYPE, T5XXL_REMOVE_KEY_NAMES
 from convert_and_quantize.optimizers import get_optimizer
+from convert_and_quantize.utils.util_functions import setup_seed
 
 
 class LearnedRoundingConverter:
@@ -27,6 +28,8 @@ class LearnedRoundingConverter:
         scaling_mode: str = 'tensor',
         block_size: int = 64,
         full_matrix: bool = False,
+        seed: int = 42,
+        generator: Optional[torch.Generator] = None,
         **kwargs
     ):
         """
@@ -41,6 +44,8 @@ class LearnedRoundingConverter:
             scaling_mode: 'tensor' or 'block' scaling
             block_size: Block size for block scaling mode
             full_matrix: Use full SVD instead of lowrank
+            seed: Random seed for reproducibility
+            generator: Optional torch.Generator for reproducibility
             **kwargs: Additional optimizer-specific arguments
         """
         self.num_iter = num_iter
@@ -52,6 +57,8 @@ class LearnedRoundingConverter:
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.optimizer_choice = optimizer
         self.full_matrix = full_matrix
+        self.seed = seed
+        self.generator = generator
         self.optimizer_kwargs = kwargs
         self.f8_max_val = torch.finfo(TARGET_FP8_DTYPE).max
 
@@ -71,6 +78,7 @@ class LearnedRoundingConverter:
         Returns:
             Tuple of (quantized_tensor, dequant_scale, dequantized_weight_tensor)
         """
+        setup_seed(self.seed, self.device, self.generator)
         W_float32 = W_orig.to(dtype=COMPUTE_DTYPE, device=self.device)
 
         # Handle zero tensors
