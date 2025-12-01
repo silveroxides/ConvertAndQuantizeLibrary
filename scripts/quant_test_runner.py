@@ -25,12 +25,19 @@ def main():
         help="""Layer exclusion filter. Predefined: 'zimage', 'qwen', 'hunyuan', 'chroma_l', 'chroma_s', 
             'nerf_l', 'nerf_s', 'radiance', 'wan', or comma-separated custom list (default: zimage)"""
     )
+    parser.add_argument("--optimizer", type=str, default="adam", help="Optimizer to use (default: adam)")
+    parser.add_argument("--block-size", type=int, default=128, help="Block size for quantization (default: 128)")
+    parser.add_argument("--full-matrix", action="store_true", help="Use full matrix quantization (default: False)")
+    parser.add_argument("--manual-seed", type=int, default=None, help="Manual seed for reproducibility (default: None)")
     args = parser.parse_args()
-
     test_quantization(
         model_path=args.model_path,
         num_iter=args.num_iter,
         exclude_layers=args.exclude_layers,
+        optimizer=args.optimizer,
+        block_size=args.block_size,
+        full_matrix=args.full_matrix,
+        manual_seed=args.manual_seed,
     )
 
 

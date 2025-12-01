@@ -43,7 +43,7 @@ dev = [
     "mypy>=1.0",
 ]
 prodigy = [
-    "prodigyplus>=0.1.0",
+    "prodigy-plus-schedule-free",
 ]
 all = [
     "convert-and-quantize[dev,prodigy]",

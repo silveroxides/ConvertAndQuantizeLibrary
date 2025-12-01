@@ -169,7 +169,7 @@ def quantize_model(
     t5xxl: bool = False,
 ):
     from convert_and_quantize.utils import get_layer_filters
-    from safetensors.torch import safe_open
+    from safetensors import safe_open
 
     all_avoid_keys, layer_keys = get_layer_filters(exclude_layers)
     
