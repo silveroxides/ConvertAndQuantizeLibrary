@@ -310,6 +310,8 @@ class LearnedRoundingConverter:
             w_max = W_float32.abs().max()
             scale = self.f8_max_val / w_max.clamp_min_(1e-12)
             compact_scale = scale
+        
+        assert scale is not None, "scale should not be None after scaling mode selection"
 
         max_rank = min(W_float32.shape)
         k = min(self.max_k, max(self.min_k, int(math.floor(self.top_p * max_rank))))
@@ -325,7 +327,7 @@ class LearnedRoundingConverter:
                 print(f"Trying svd_lowrank")
                 U, _, Vh = torch.svd_lowrank(W_float32, q=min(k + 10, max_rank), niter=4)
                 Vh = Vh.T
-            except torch.linalg.LinAlgError:
+            except RuntimeError:
                 print("    - svd_lowrank failed, falling back to full SVD.")
                 U, _, Vh = torch.linalg.svd(W_float32, full_matrices=False)
 
@@ -351,14 +353,17 @@ class LearnedRoundingConverter:
 
         with torch.no_grad():
             W_f8 = final_tensor_scaled.to(TARGET_FP8_DTYPE)
-            dequant_scale = None
-            if current_scaling_mode == 'block':
-                dequant_scale = compact_scale.reciprocal()
+            # Ensure compact_scale is valid before calling reciprocal; fall back to ones if missing.
+            if compact_scale is None:
+                print("    - WARNING: compact_scale is None, falling back to torch.ones for dequant_scale.")
+                dequant_scale = torch.ones(1, device=self.device, dtype=SCALE_DTYPE)
             else:
-                dequant_scale = compact_scale.reciprocal().reshape(1)
-
+                if current_scaling_mode == 'block':
+                    dequant_scale = compact_scale.reciprocal()
+                else:
+                    dequant_scale = compact_scale.reciprocal().reshape(1)
+                dequant_scale = dequant_scale.to(device=self.device, dtype=SCALE_DTYPE)
             dequantized_weight_tensor = (W_f8.to(self.device, dtype=COMPUTE_DTYPE) / scale)
-
         del W_float32, scale, U, Vh, U_k, Vh_k, final_tensor_scaled, compact_scale
         gc.collect()
         if self.device == 'cuda':
