@@ -62,6 +62,42 @@ def main():
         default=8.0980000000000011e-3,
         help="Learning rate for optimization (default: 8.098e-3)"
     )
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        default="adam",
+        help="Optimizer for rounding optimization (default: adam)"
+    )
+    parser.add_argument(
+        "--block-size",
+        type=int,
+        default=128,
+        help="Block size for quantization (default: 128)"
+    )
+    parser.add_argument(
+        "--full-matrix",
+        type=bool,
+        default=False,
+        help="Use full matrix for quantization (default: False)"
+    )
+    parser.add_argument(
+        "--manual-seed",
+        type=int,
+        default=42,
+        help="Manual seed for reproducibility (default: 42)"
+    )
+    parser.add_argument(
+        "--calib-samples",
+        type=int,
+        default=32,
+        help="Number of calibration samples (default: 32)"
+    )
+    parser.add_argument(
+        "--t5xxl",
+        type=bool,
+        default=False,
+        help="Use T5XXL model specific settings (default: False)"
+    )
 
     args = parser.parse_args()
 
@@ -75,6 +111,12 @@ def main():
         max_k=args.max_k,
         top_p=args.top_p,
         lr=args.lr,
+        optimizer=args.optimizer,
+        block_size=args.block_size,
+        full_matrix=args.full_matrix,
+        manual_seed=args.manual_seed,
+        calib_samples=args.calib_samples,
+        t5xxl=args.t5xxl,
     )
 
 

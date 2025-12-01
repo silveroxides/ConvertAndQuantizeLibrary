@@ -2,7 +2,8 @@
 Command-line logic for quantization tools.
 """
 import torch
-from safetensors.torch import safe_open, save_file
+from safetensors import safe_open
+from safetensors.torch import save_file
 from convert_and_quantize import LearnedRoundingConverter
 from convert_and_quantize.utils import get_layer_filters, generate_output_filename
 from convert_and_quantize.constants import T5XXL_REMOVE_KEY_NAMES
@@ -15,7 +16,7 @@ SCALE_DTYPE = torch.float32
 
 def test_quantization(model_path: str, num_iter: int, exclude_layers: str, optimizer: str, block_size: int, full_matrix: bool, manual_seed: int):
     from convert_and_quantize.core.converter import quantize_model
-    from safetensors.torch import safe_open
+    from safetensors import safe_open
 
     converter = LearnedRoundingConverter(
         optimizer=optimizer,
@@ -122,7 +123,7 @@ def main():
     save_parser.add_argument("--scaling-mode", type=str, default="tensor", choices=["tensor", "block"], help="Scaling mode for quantization.")
     save_parser.add_argument("--min-k", type=int, default=256, help="Minimum number of SVD components.")
     save_parser.add_argument("--max-k", type=int, default=768, help="Maximum number of SVD components.")
-    save_parser.add_argument("--top-p", type=float, default=0.1, help="Proportion of SVD components to use.")
+    save_parser.add_argument("--top-p", type=float, default=0.25, help="Proportion of SVD components to use.")
     save_parser.add_argument("--lr", type=float, default=8.098e-3, help="Learning rate for the optimizer.")
     save_parser.add_argument("--optimizer", type=str, default="original", choices=["original", "adamw", "radam", "ppsf"], help="Optimizer to use.")
     save_parser.add_argument("--block-size", type=int, default=64, help="Block size for 'block' scaling mode.")

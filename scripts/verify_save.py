@@ -12,7 +12,7 @@ Shows summary statistics of quantized model including:
 
 import sys
 import argparse
-from safetensors.torch import safe_open
+from safetensors import safe_open
 from convert_and_quantize.constants import (
     ZIMAGE_LAYER_KEYNAMES, QWEN_LAYER_KEYNAMES
 )
