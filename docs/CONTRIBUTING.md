@@ -123,6 +123,7 @@ def my_function(param1: str, param2: int) -> bool:
 ### Bug Reports
 
 Report bugs by opening an issue with:
+
 - Clear title describing the bug
 - Steps to reproduce
 - Expected behavior
@@ -133,6 +134,7 @@ Report bugs by opening an issue with:
 ### Feature Requests
 
 Propose features with:
+
 - Clear description of the feature
 - Use case and motivation
 - Example usage
@@ -183,6 +185,7 @@ flake8 convert_and_quantize/ tests/ examples/
 ### Submitting PR
 
 1. **Push to your fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -195,6 +198,7 @@ flake8 convert_and_quantize/ tests/ examples/
    - Update documentation links
 
 3. **PR Description Template**
+
    ```markdown
    ## Description
    Brief description of changes
@@ -227,7 +231,7 @@ flake8 convert_and_quantize/ tests/ examples/
 
 ## Project Structure
 
-```
+```markdown
 convert_and_quantize/
 ├── __init__.py              # Package initialization
 ├── constants.py             # Constants and model configs
@@ -321,6 +325,7 @@ twine check dist/*
 ## Recognition
 
 Contributors will be:
+
 - Added to CONTRIBUTORS file
 - Credited in release notes
 - Recognized in documentation

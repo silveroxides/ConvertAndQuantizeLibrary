@@ -21,20 +21,21 @@ def optimize_with_original(
     Vh_k: torch.Tensor,
     num_iter: int = 500,
     lr: float = 0.5,
-    f8_max_val: float = 0.0,
     target_dtype: torch.dtype = torch.float8_e4m3fn,
+    compute_dtype: torch.dtype = torch.float32,
+    **kwargs
 ) -> torch.Tensor:
     """
     Original optimization algorithm with adaptive learning rate scheduling.
     """
-    W_rounded = (W_float32 * scale).to(target_dtype).to(torch.float32)
+    W_rounded = (W_float32 * scale).to(target_dtype).to(compute_dtype)
     W_q_refined = W_rounded.clone()
     best_loss = float('inf')
     best_tensor = None
     worse_loss_counter = 0
     curr_lr = lr
     if W_float32.shape[0] == W_float32.shape[1]:
-        small_mult = 0.95
+        small_mult = 0.99
     else:
         small_mult = 1.0
 
@@ -54,67 +55,67 @@ def optimize_with_original(
         elif loss.item() < best_loss and worse_loss_counter > 49 and worse_loss_counter < 75:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 35
-            curr_lr = min(curr_lr * (1.5 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (1.375 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 74 and worse_loss_counter < 100:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 65
-            curr_lr = min(curr_lr * (1.75 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (1.5 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 99 and worse_loss_counter < 150:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 96
-            curr_lr = min(curr_lr * (2.0 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (1.75 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 149 and worse_loss_counter < 200:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 147
-            curr_lr = min(curr_lr * (2.25 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (2.0 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 199 and worse_loss_counter < 300:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 198
-            curr_lr = min(curr_lr * (2.5 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (2.25 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 299 and worse_loss_counter < 400:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 299
-            curr_lr = min(curr_lr * (2.75 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (2.5 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 399 and worse_loss_counter < 500:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 400
-            curr_lr = min(curr_lr * (3.0 * small_mult), 100.0)
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (2.75 * small_mult), 100.0)
         elif loss.item() < best_loss and worse_loss_counter > 499:
             best_loss = loss.item()
             best_tensor = W_q_refined.clone()
-            worse_loss_counter = 500
-            curr_lr = min(curr_lr * (3.25 * small_mult), 100.0)
-        elif loss.item() > best_loss and worse_loss_counter < 26:
+            worse_loss_counter = 0
+            curr_lr = min(curr_lr * (3.0 * small_mult), 100.0)
+        elif loss.item() > best_loss and worse_loss_counter < 51:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.95 * small_mult), 1e-8)
-        elif worse_loss_counter > 25 and worse_loss_counter < 76:
+            curr_lr = max(curr_lr * (0.95 * small_mult), 9e-8)
+        elif worse_loss_counter > 50 and worse_loss_counter < 101:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.9625 * small_mult), 1e-8)
-        elif worse_loss_counter > 75 and worse_loss_counter < 151:
+            curr_lr = max(curr_lr * (0.96 * small_mult), 8e-8)
+        elif worse_loss_counter > 100 and worse_loss_counter < 151:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.975 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.97 * small_mult), 7e-8)
         elif worse_loss_counter > 150 and worse_loss_counter < 201:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.9875 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.975 * small_mult), 6e-8)
         elif worse_loss_counter > 200 and worse_loss_counter < 301:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.99 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.98 * small_mult), 5e-8)
         elif worse_loss_counter > 300 and worse_loss_counter < 401:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.99125 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.985 * small_mult), 4e-8)
         elif worse_loss_counter > 400 and worse_loss_counter < 501:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.9925 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.99 * small_mult), 3e-8)
         elif worse_loss_counter > 500 and worse_loss_counter < 601:
             worse_loss_counter += 1
-            curr_lr = max(curr_lr * (0.99375 * small_mult), 1e-8)
+            curr_lr = max(curr_lr * (0.9925 * small_mult), 2e-8)
         elif worse_loss_counter > 600:
             worse_loss_counter += 1
             curr_lr = max(curr_lr * (0.995 * small_mult), 1e-8)
@@ -122,13 +123,19 @@ def optimize_with_original(
 
         pbar.set_postfix({"loss": f"{loss.item():.3e}", "best": f"{best_loss:.3e}", "lr": f"{curr_lr:.2e}", "worse_count": f"{worse_loss_counter}"})
 
-        if loss.item() < 1e-9 or curr_lr < 2e-08 or worse_loss_counter > 1500:
-            if worse_loss_counter > 1500:
-                print("      - Loss has stalled. Stopping.")
-            elif curr_lr < 2e-8:
-                print("      - Learning Rate has bottomed out. Stopping.")
-            else:
+        if loss.item() < 1e-9 or curr_lr < 1.5e-08 or worse_loss_counter > 1500:
+            if curr_lr < 1.75e-08 and worse_loss_counter > 1250:
+                print("      - Loss has stalled and learning rate has bottomed out. Stopping.")
+            elif loss.item() < 2e-9 and curr_lr < 1.75e-8:
+                print("      - Learning Rate has bottomed out and loss is negligible. Stopping.")
+            elif worse_loss_counter > 1250 and loss.item() > 2e-9:
+                print("      - Loss is negligible and loss has stalled. Stopping.")
+            elif loss.item() < 1e-9:
                 print("      - Loss is negligible. Stopping.")
+            elif curr_lr < 2e-08:
+                print("      - Learning Rate has bottomed out. Stopping.")
+            elif worse_loss_counter > 1250:
+                print("      - Loss has stalled. Stopping.")
             break
 
         with torch.no_grad():
@@ -146,15 +153,16 @@ def optimize_with_adamw(
     Vh_k: torch.Tensor,
     num_iter: int = 500,
     lr: float = 1e-2,
-    f8_max_val: float = 0.0,
     target_dtype: torch.dtype = torch.float8_e4m3fn,
+    compute_dtype: torch.dtype = torch.float32,
+    **kwargs
 ) -> torch.Tensor:
     """
     AdamW optimizer for quantization refinement.
     """
-    W_rounded = (W_float32 * scale).to(target_dtype).to(torch.float32)
+    W_rounded = (W_float32 * scale).to(target_dtype).to(compute_dtype)
     delta = torch.zeros_like(W_rounded, requires_grad=True)
-    optimizer = AdamW([delta], lr=lr)
+    optimizer = AdamW([delta], lr=lr, **kwargs)
     best_loss = float('inf')
     best_delta = delta.detach().clone()
 
@@ -199,15 +207,16 @@ def optimize_with_radam(
     Vh_k: torch.Tensor,
     num_iter: int = 500,
     lr: float = 1e-2,
-    f8_max_val: float = 0.0,
     target_dtype: torch.dtype = torch.float8_e4m3fn,
+    compute_dtype: torch.dtype = torch.float32,
+    **kwargs
 ) -> torch.Tensor:
     """
     RAdam optimizer for quantization refinement.
     """
-    W_rounded = (W_float32 * scale).to(target_dtype).to(torch.float32)
+    W_rounded = (W_float32 * scale).to(target_dtype).to(compute_dtype)
     delta = torch.zeros_like(W_rounded, requires_grad=True)
-    optimizer = RAdam([delta], lr=lr)
+    optimizer = RAdam([delta], lr=lr, **kwargs)
     best_loss = float('inf')
     best_delta = delta.detach().clone()
 
@@ -252,8 +261,9 @@ def optimize_with_prodigy(
     Vh_k: torch.Tensor,
     num_iter: int = 500,
     lr: float = 1e-2,
-    f8_max_val: float = 0.0,
     target_dtype: torch.dtype = torch.float8_e4m3fn,
+    compute_dtype: torch.dtype = torch.float32,
+    **kwargs
 ) -> torch.Tensor:
     """
     ProdigyPlusScheduleFree optimizer for quantization refinement.
@@ -261,10 +271,10 @@ def optimize_with_prodigy(
     if not PRODIGY_AVAILABLE:
         raise ImportError(
             "ProdigyPlusScheduleFree not available. "
-            "Install with: pip install prodigyplus"
+            "Install with: pip install prodigy-plus-schedule-free"
         )
 
-    W_rounded = (W_float32 * scale).to(target_dtype).to(torch.float32)
+    W_rounded = (W_float32 * scale).to(target_dtype).to(compute_dtype)
     delta = torch.zeros_like(W_rounded, requires_grad=True)
     optimizer = ProdigyPlusScheduleFree(
         [delta], lr=lr, betas=(0.9, 0.99), beta3=None,
@@ -275,7 +285,8 @@ def optimize_with_prodigy(
         use_stableadamw=True, use_schedulefree=True, use_speed=False,
         stochastic_rounding=True, fused_back_pass=False,
         use_cautious=False, use_grams=False, use_adopt=False,
-        use_orthograd=False, use_focus=False
+        use_orthograd=False, use_focus=False,
+        **kwargs
     )
     best_loss = float('inf')
     best_delta = delta.detach().clone()

@@ -160,11 +160,11 @@ class TestLearnedRoundingConverter:
         
         # First run
         generator = torch.Generator(device=self.device)
-        converter1 = LearnedRoundingConverter(num_iter=10, seed=42, generator=generator)
+        converter1 = LearnedRoundingConverter(num_iter=10, seed=-1, generator=generator)
         q1, s1, d1 = converter1.convert(weight.clone())
         
         # Second run with same seed
-        converter2 = LearnedRoundingConverter(num_iter=10, seed=42, generator=generator)
+        converter2 = LearnedRoundingConverter(num_iter=10, seed=-1, generator=generator)
         q2, s2, d2 = converter2.convert(weight.clone())
         
         # Results should be very close (may not be identical due to floating point)
@@ -185,7 +185,7 @@ class TestUtilityFunctions:
         """Test seed setup."""
         from convert_and_quantize import setup_seed
         
-        gen = setup_seed(42)
+        gen = setup_seed(-1)
         assert isinstance(gen, torch.Generator)
 
     def test_get_fp8_constants(self):

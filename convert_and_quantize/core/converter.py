@@ -23,13 +23,15 @@ class LearnedRoundingConverter:
         optimizer: str = "original",
         num_iter: int = 500,
         top_p: float = 0.25,
-        min_k: int = 8,
-        max_k: int = 64,
+        min_k: int = 64,
+        max_k: int = 256,
         scaling_mode: str = 'tensor',
         block_size: int = 64,
         full_matrix: bool = False,
-        seed: int = 42,
+        seed: int = -1,
+        lr: float = 1e-3,
         generator: Optional[torch.Generator] = None,
+        device: Optional[torch.device] = None,
         **kwargs
     ):
         """
@@ -54,19 +56,27 @@ class LearnedRoundingConverter:
         self.max_k = max_k
         self.scaling_mode = scaling_mode
         self.block_size = block_size
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.optimizer_choice = optimizer
         self.full_matrix = full_matrix
         self.seed = seed
+        self.lr = lr
         self.generator = generator
         self.optimizer_kwargs = kwargs
+        self.lr = lr
         self.f8_max_val = torch.finfo(TARGET_FP8_DTYPE).max
+
+        if device is None:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = torch.device(device)
 
         print(f"LearnedRoundingConverter initialized on device: {self.device}")
         print(f"  - Using optimizer: '{self.optimizer_choice}'")
         print(f"  - Scaling mode: {self.scaling_mode}")
         if self.scaling_mode == 'block':
             print(f"    - Block size: {self.block_size}")
+
+        self.optimizer = get_optimizer(self.optimizer_choice, lr=self.lr, **self.optimizer_kwargs)
 
     def convert(self, W_orig: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -78,8 +88,9 @@ class LearnedRoundingConverter:
         Returns:
             Tuple of (quantized_tensor, dequant_scale, dequantized_weight_tensor)
         """
-        setup_seed(self.seed, self.device, self.generator)
-        W_float32 = W_orig.to(dtype=COMPUTE_DTYPE, device=self.device)
+        device = self.device
+        setup_seed(self.seed, str(device), self.generator)
+        W_float32 = W_orig.to(dtype=COMPUTE_DTYPE, device=device)
 
         # Handle zero tensors
         if torch.all(W_float32 == 0):
@@ -139,12 +150,13 @@ class LearnedRoundingConverter:
         U_k, Vh_k = U[:, :k], Vh[:k, :]
 
         # Optimize
-        optimizer_func = get_optimizer(self.optimizer_choice)
-        final_tensor_scaled = optimizer_func(
+        assert scale is not None, "Scale must be initialized before optimization."
+        final_tensor_scaled = self.optimizer(
             W_float32, scale, U_k, Vh_k,
             num_iter=self.num_iter,
             f8_max_val=self.f8_max_val,
             target_dtype=TARGET_FP8_DTYPE,
+            compute_dtype=COMPUTE_DTYPE,
             **self.optimizer_kwargs
         )
         final_tensor_scaled.clamp_(-self.f8_max_val, self.f8_max_val)
@@ -153,12 +165,13 @@ class LearnedRoundingConverter:
         with torch.no_grad():
             W_f8 = final_tensor_scaled.to(dtype=TARGET_FP8_DTYPE)
             assert compact_scale is not None, "compact_scale should never be None at this point"
+            assert scale is not None, "scale should never be None at this point"
             if current_scaling_mode == 'block':
                 dequant_scale = compact_scale.reciprocal()
             else:
                 dequant_scale = compact_scale.reciprocal().reshape(1)
 
-            dequantized_weight_tensor = (W_f8.to(dtype=COMPUTE_DTYPE) / scale)
+            dequantized_weight_tensor = (W_f8.to(self.device, dtype=COMPUTE_DTYPE) / scale)
 
         del W_float32, scale, U, Vh, U_k, Vh_k, final_tensor_scaled, compact_scale
         gc.collect()
@@ -175,9 +188,39 @@ def quantize_model(
     calib_samples: int = 0,
     manual_seed: int = -1,
     t5xxl: bool = False,
+    chroma_large: bool = False,
+    chroma_small: bool = False,
+    radiance_large: bool = False,
+    radiance_small: bool = False,
+    radiance: bool = False,
+    wan: bool = False,
+    qwen: bool = False,
+    hunyuan: bool = False,
+    zimage_l: bool = False,
+    zimage_s: bool = False,
+    seed_generator: Optional[torch.Generator] = None,
+    device: Optional[torch.device] = None,
 ):
     from convert_and_quantize.utils import get_layer_filters
     from safetensors import safe_open
+    from convert_and_quantize.constants import (
+        AVOID_KEY_NAMES,
+        T5XXL_REMOVE_KEY_NAMES,
+        QWEN_AVOID_KEY_NAMES,
+        HUNYUAN_AVOID_KEY_NAMES,
+        ZIMAGE_AVOID_KEY_NAMES,
+        RADIANCE_AVOID_KEY_NAMES,
+        CHROMA_LAYER_KEYNAMES_LARGE,
+        CHROMA_LAYER_KEYNAMES_SMALL,
+        RADIANCE_LAYER_KEYNAMES_LARGE,
+        RADIANCE_LAYER_KEYNAMES_SMALL,
+        WAN_LAYER_KEYNAMES,
+        QWEN_LAYER_KEYNAMES,
+        ZIMAGE_LAYER_KEYNAMES,
+    )
+
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     all_avoid_keys, layer_keys = get_layer_filters(exclude_layers)
     
@@ -185,22 +228,27 @@ def quantize_model(
     calibration_data_cache = {}
     print("Scanning model and generating simulated calibration data...")
     if calib_samples > 0:
-        with safe_open(model_path, framework="pt", device="cpu") as f:
-            for key in f.keys():
-                if key.endswith(".weight") and f.get_tensor(key).ndim == 2:
-                    in_features = f.get_tensor(key).shape[1]
-                    if in_features not in calibration_data_cache:
-                        seed_generator = torch.Generator(device='cpu')
-                        if manual_seed != -1:
-                            seed_generator.manual_seed(manual_seed)
-                        
-                        calibration_data_cache[in_features] = torch.randn(
-                            calib_samples, 
-                            in_features, 
-                            dtype=torch.float32, 
-                            generator=seed_generator, 
-                            device='cpu'
-                        )
+        try:
+            with safe_open(model_path, framework="pt", device='cpu') as f:
+                for key in f.keys():
+                    if key.endswith(".weight") and f.get_tensor(key).ndim == 2:
+                        in_features = f.get_tensor(key).shape[1]
+                        if in_features not in calibration_data_cache:
+                            if seed_generator is None:
+                                seed_generator = torch.Generator(device=device)
+                                if manual_seed != -1:
+                                    seed_generator.manual_seed(manual_seed)
+                            
+                            calibration_data_cache[in_features] = torch.randn(
+                                calib_samples, 
+                                in_features, 
+                                dtype=COMPUTE_DTYPE, 
+                                generator=seed_generator, 
+                                device=device
+                            )
+        except FileNotFoundError:
+            print(f"Model path not found: {model_path}")
+            return {}
     print("Simulated calibration data generated.\n")
 
     with safe_open(model_path, framework="pt", device="cpu") as f:
@@ -209,60 +257,109 @@ def quantize_model(
         print(f"Found {total_weights} weight tensors to potentially process.")
         
         for i, key in enumerate(weight_keys):
-            if t5xxl and any(n in key for n in T5XXL_REMOVE_KEY_NAMES):
-                print(f"({i+1}/{total_weights}) Removing T5XXL decoder tensor: {key}")
-                continue
-
-            tensor = f.get_tensor(key)
-
             process_this_key = True
             create_scale_key = True
             skip_reason = ""
 
-            if any(n in key for n in all_avoid_keys):
-                skip_reason = "In avoid list"
+            if t5xxl and any(n in key for n in T5XXL_REMOVE_KEY_NAMES):
+                print(f"({i+1}/{total_weights}) Removing T5XXL decoder tensor: {key}")
+                continue
+            if t5xxl and any(n in key for n in AVOID_KEY_NAMES):
+                skip_reason = "T5XXL exclusion"
                 create_scale_key = False
                 process_this_key = False
-
-            if any(n in key for n in layer_keys):
-                skip_reason = "In high-precision list"
+            if radiance and any(n in key for n in RADIANCE_AVOID_KEY_NAMES):
+                skip_reason = "Radiance exclusion"
+                create_scale_key = False
+                process_this_key = False
+            if wan and any(n in key for n in AVOID_KEY_NAMES):
+                skip_reason = "WAN exclusion"
+                create_scale_key = False
+                process_this_key = False
+            if qwen and any(n in key for n in QWEN_AVOID_KEY_NAMES):
+                skip_reason = "Qwen Image exclusion"
+                create_scale_key = False
+                process_this_key = False
+            if zimage_l and any(n in key for n in ZIMAGE_AVOID_KEY_NAMES):
+                skip_reason = "Z-Image exclusion"
+                create_scale_key = False
+                process_this_key = False
+            if zimage_s and any(n in key for n in ZIMAGE_AVOID_KEY_NAMES):
+                skip_reason = "Z-Image exclusion"
+                create_scale_key = False
+                process_this_key = False
+            if hunyuan and any(n in key for n in HUNYUAN_AVOID_KEY_NAMES):
+                skip_reason = "Hunyuan Video 1.5 exclusion"
+                create_scale_key = False
+                process_this_key = False
+            if chroma_large and any(n in key for n in CHROMA_LAYER_KEYNAMES_LARGE):
+                skip_reason = "Distillation layer and Flux1 keep"
+                create_scale_key = True
+                process_this_key = False
+            if chroma_small and any(n in key for n in CHROMA_LAYER_KEYNAMES_SMALL):
+                skip_reason = "Distillation layer only"
+                create_scale_key = True
+                process_this_key = False
+            if radiance_large and any(n in key for n in RADIANCE_LAYER_KEYNAMES_LARGE):
+                skip_reason = "Distillation layer, NeRF layer and txt_in"
+                create_scale_key = True
+                process_this_key = False
+            if radiance_small and any(n in key for n in RADIANCE_LAYER_KEYNAMES_SMALL):
+                skip_reason = "Distillation layer and NeRF layer"
+                create_scale_key = True
+                process_this_key = False
+            if wan and any(n in key for n in WAN_LAYER_KEYNAMES):
+                skip_reason = "WAN layer keep in high"
+                create_scale_key = True
+                process_this_key = False
+            if qwen and any(n in key for n in QWEN_LAYER_KEYNAMES):
+                skip_reason = "Qwen Image layer keep in high"
+                create_scale_key = True
+                process_this_key = False
+            if zimage_l and any(n in key for n in ZIMAGE_LAYER_KEYNAMES):
+                skip_reason = "Z-Image layer keep in high"
                 create_scale_key = True
                 process_this_key = False
 
+            tensor = f.get_tensor(key)
             if not process_this_key:
                 if not create_scale_key:
                     print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: {skip_reason})")
-                    new_tensors[key] = tensor
+                    new_tensors[key] = tensor.to(dtype=COMPUTE_DTYPE).to(device='cpu')
                 else:
                     print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: {skip_reason})")
                     new_tensors[key] = tensor
                     base_name = key[:key.rfind('.weight')]
-                    new_tensors[f"{base_name}.scale_weight"] = torch.tensor([1.0], dtype=torch.float32)
+                    new_tensors[f"{base_name}.scale_weight"] = torch.tensor([1.0], dtype=SCALE_DTYPE).to(device='cpu')
+                continue
+
+            if tensor.ndim != 2:
+                print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: Not a 2D tensor)")
                 continue
 
             print(f"({i+1}/{total_weights}) Processing tensor: {key}")
             q_tensor, dequant_s, dequant_w = converter.convert(tensor)
-            new_tensors[key] = q_tensor.to('cpu')
+            new_tensors[key] = q_tensor.to(device='cpu')
             base_name = key[:key.rfind('.weight')]
-            new_tensors[f"{base_name}.scale_weight"] = dequant_s.to('cpu').detach().clone()
+            new_tensors[f"{base_name}.scale_weight"] = dequant_s.to(device='cpu').detach().clone()
             
             if t5xxl:
-                new_tensors[f"{base_name}.scale_input"] = dequant_s.to('cpu').detach().clone()
+                new_tensors[f"{base_name}.scale_input"] = dequant_s.to(device='cpu').detach().clone()
 
             bias_key = f"{base_name}.bias"
             if bias_key in f.keys():
                 original_bias = f.get_tensor(bias_key)
                 if calib_samples > 0 and tensor.shape[1] in calibration_data_cache:
-                    X_calib = calibration_data_cache[tensor.shape[1]].to(converter.device)
-                    W_orig = tensor.to(converter.device, dtype=torch.float32)
-                    W_dequant = dequant_w.to(converter.device, dtype=torch.float32)
+                    X_calib = calibration_data_cache[tensor.shape[1]].to(device=device)
+                    W_orig = tensor.to(device=device, dtype=COMPUTE_DTYPE)
+                    W_dequant = dequant_w.to(device=device, dtype=COMPUTE_DTYPE)
                     
                     weight_error = W_orig - W_dequant
                     output_error = X_calib @ weight_error.T
                     bias_correction = output_error.mean(dim=0)
                     
-                    new_bias = original_bias.to(converter.device, dtype=torch.float32) - bias_correction
-                    new_tensors[bias_key] = new_bias.to('cpu', dtype=original_bias.dtype)
+                    new_bias = original_bias.to(device=device, dtype=COMPUTE_DTYPE) - bias_correction
+                    new_tensors[bias_key] = new_bias.to(device='cpu', dtype=original_bias.dtype)
                     print(f"    - Original bias mean : {original_bias.mean().item():.6f}\n    - Corrected bias mean: {new_tensors[bias_key].mean().item():.6f}")
                 else:
                     new_tensors[bias_key] = original_bias

@@ -79,8 +79,8 @@ def get_layer_filters(filter_name: str) -> Tuple[list, list]:
     from convert_and_quantize.constants import (
         AVOID_KEY_NAMES, ZIMAGE_AVOID_KEY_NAMES, ZIMAGE_LAYER_KEYNAMES,
         QWEN_AVOID_KEY_NAMES, QWEN_LAYER_KEYNAMES, HUNYUAN_AVOID_KEY_NAMES,
-        DISTILL_LAYER_KEYNAMES_LARGE, DISTILL_LAYER_KEYNAMES_SMALL,
-        NERF_LAYER_KEYNAMES_LARGE, NERF_LAYER_KEYNAMES_SMALL,
+        CHROMA_LAYER_KEYNAMES_LARGE, CHROMA_LAYER_KEYNAMES_SMALL,
+        RADIANCE_LAYER_KEYNAMES_LARGE, RADIANCE_LAYER_KEYNAMES_SMALL,
         RADIANCE_AVOID_KEY_NAMES, WAN_LAYER_KEYNAMES
     )
 
@@ -96,16 +96,16 @@ def get_layer_filters(filter_name: str) -> Tuple[list, list]:
         layer_keys = []
         all_avoid_keys = HUNYUAN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
     elif filter_name == "chroma_l":
-        layer_keys = DISTILL_LAYER_KEYNAMES_LARGE
+        layer_keys = CHROMA_LAYER_KEYNAMES_LARGE
         all_avoid_keys = AVOID_KEY_NAMES
     elif filter_name == "chroma_s":
-        layer_keys = DISTILL_LAYER_KEYNAMES_SMALL
+        layer_keys = CHROMA_LAYER_KEYNAMES_SMALL
         all_avoid_keys = AVOID_KEY_NAMES
     elif filter_name == "nerf_l":
-        layer_keys = NERF_LAYER_KEYNAMES_LARGE
+        layer_keys = RADIANCE_LAYER_KEYNAMES_LARGE
         all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
     elif filter_name == "nerf_s":
-        layer_keys = NERF_LAYER_KEYNAMES_SMALL
+        layer_keys = RADIANCE_LAYER_KEYNAMES_SMALL
         all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
     elif filter_name == "radiance":
         layer_keys = []
@@ -164,10 +164,10 @@ def generate_output_filename(
 def should_process_layer(
     key: str,
     t5xxl: bool = False,
-    keep_distillation_large: bool = False,
-    keep_distillation_small: bool = False,
-    keep_nerf_large: bool = False,
-    keep_nerf_small: bool = False,
+    chroma_large: bool = False,
+    chroma_small: bool = False,
+    radiance_large: bool = False,
+    radiance_small: bool = False,
     radiance: bool = False,
     wan: bool = False,
     qwen: bool = False,
@@ -188,10 +188,10 @@ def should_process_layer(
         QWEN_AVOID_KEY_NAMES,
         QWEN_LAYER_KEYNAMES,
         HUNYUAN_AVOID_KEY_NAMES,
-        DISTILL_LAYER_KEYNAMES_LARGE,
-        DISTILL_LAYER_KEYNAMES_SMALL,
-        NERF_LAYER_KEYNAMES_LARGE,
-        NERF_LAYER_KEYNAMES_SMALL,
+        CHROMA_LAYER_KEYNAMES_LARGE,
+        CHROMA_LAYER_KEYNAMES_SMALL,
+        RADIANCE_LAYER_KEYNAMES_LARGE,
+        RADIANCE_LAYER_KEYNAMES_SMALL,
         RADIANCE_AVOID_KEY_NAMES,
         WAN_LAYER_KEYNAMES,
         T5XXL_REMOVE_KEY_NAMES,
@@ -215,17 +215,17 @@ def should_process_layer(
     if wan:
         layer_keys = WAN_LAYER_KEYNAMES
         all_avoid = AVOID_KEY_NAMES + all_avoid
-    if keep_distillation_large:
-        layer_keys = DISTILL_LAYER_KEYNAMES_LARGE
+    if chroma_large:
+        layer_keys = CHROMA_LAYER_KEYNAMES_LARGE
         all_avoid = AVOID_KEY_NAMES + all_avoid
-    if keep_distillation_small:
-        layer_keys = DISTILL_LAYER_KEYNAMES_SMALL
+    if chroma_small:
+        layer_keys = CHROMA_LAYER_KEYNAMES_SMALL
         all_avoid = AVOID_KEY_NAMES + all_avoid
-    if keep_nerf_large:
-        layer_keys = NERF_LAYER_KEYNAMES_LARGE
+    if radiance_large:
+        layer_keys = RADIANCE_LAYER_KEYNAMES_LARGE
         all_avoid = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES + all_avoid
-    if keep_nerf_small:
-        layer_keys = NERF_LAYER_KEYNAMES_SMALL
+    if radiance_small:
+        layer_keys = RADIANCE_LAYER_KEYNAMES_SMALL
         all_avoid = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES + all_avoid
     if radiance:
         all_avoid = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES + all_avoid
