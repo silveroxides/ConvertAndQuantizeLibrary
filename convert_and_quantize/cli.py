@@ -115,6 +115,7 @@ def quantize_and_save(
         full_matrix=full_matrix,
         seed=manual_seed,
         lr=lr,
+        mem_eff_safe_open=mem_eff_safe_open,
     )
 
     quantized_tensors = quantize_model(
