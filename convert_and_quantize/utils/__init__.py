@@ -69,59 +69,59 @@ def setup_seed(seed: int, device: Optional[str] = None, generator: Optional[torc
     return generator
 
 
-def get_layer_filters(filter_name: str) -> Tuple[list, list]:
-    """
-    Get layer exclusion and preservation filters based on a filter name.
-
-    Args:
-        filter_name: Predefined filter name or custom comma-separated list.
-
-    Returns:
-        Tuple of (all_avoid_keys, layer_keys)
-    """
-    from convert_and_quantize.constants import (
-        AVOID_KEY_NAMES, ZIMAGE_AVOID_KEY_NAMES, ZIMAGE_LAYER_KEYNAMES,
-        QWEN_AVOID_KEY_NAMES, QWEN_LAYER_KEYNAMES, HUNYUAN_AVOID_KEY_NAMES,
-        CHROMA_LAYER_KEYNAMES_LARGE, CHROMA_LAYER_KEYNAMES_SMALL,
-        RADIANCE_LAYER_KEYNAMES_LARGE, RADIANCE_LAYER_KEYNAMES_SMALL,
-        RADIANCE_AVOID_KEY_NAMES, WAN_LAYER_KEYNAMES
-    )
-
-    filter_name = filter_name.lower().strip()
-
-    if filter_name == "zimage":
-        layer_keys = ZIMAGE_LAYER_KEYNAMES
-        all_avoid_keys = ZIMAGE_AVOID_KEY_NAMES + AVOID_KEY_NAMES
-    elif filter_name == "qwen":
-        layer_keys = QWEN_LAYER_KEYNAMES
-        all_avoid_keys = QWEN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
-    elif filter_name == "hunyuan":
-        layer_keys = []
-        all_avoid_keys = HUNYUAN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
-    elif filter_name == "chroma_l":
-        layer_keys = CHROMA_LAYER_KEYNAMES_LARGE
-        all_avoid_keys = AVOID_KEY_NAMES
-    elif filter_name == "chroma_s":
-        layer_keys = CHROMA_LAYER_KEYNAMES_SMALL
-        all_avoid_keys = AVOID_KEY_NAMES
-    elif filter_name == "nerf_l":
-        layer_keys = RADIANCE_LAYER_KEYNAMES_LARGE
-        all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
-    elif filter_name == "nerf_s":
-        layer_keys = RADIANCE_LAYER_KEYNAMES_SMALL
-        all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
-    elif filter_name == "radiance":
-        layer_keys = []
-        all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
-    elif filter_name == "wan":
-        layer_keys = WAN_LAYER_KEYNAMES
-        all_avoid_keys = AVOID_KEY_NAMES
-    else:
-        # Custom comma-separated list
-        layer_keys = []
-        all_avoid_keys = AVOID_KEY_NAMES + [k.strip() for k in filter_name.split(",") if k.strip()]
-
-    return all_avoid_keys, layer_keys
+# def get_layer_filters(filter_name: str) -> Tuple[list, list]:
+#     """
+#     Get layer exclusion and preservation filters based on a filter name.
+# 
+#     Args:
+#         filter_name: Predefined filter name or custom comma-separated list.
+# 
+#     Returns:
+#         Tuple of (all_avoid_keys, layer_keys)
+#     """
+#     from convert_and_quantize.constants import (
+#         AVOID_KEY_NAMES, ZIMAGE_AVOID_KEY_NAMES, ZIMAGE_LAYER_KEYNAMES,
+#         QWEN_AVOID_KEY_NAMES, QWEN_LAYER_KEYNAMES, HUNYUAN_AVOID_KEY_NAMES,
+#         CHROMA_LAYER_KEYNAMES_LARGE, CHROMA_LAYER_KEYNAMES_SMALL,
+#         RADIANCE_LAYER_KEYNAMES_LARGE, RADIANCE_LAYER_KEYNAMES_SMALL,
+#         RADIANCE_AVOID_KEY_NAMES, WAN_LAYER_KEYNAMES
+#     )
+# 
+#     filter_name = filter_name.lower().strip()
+# 
+#     if filter_name == "zimage":
+#         layer_keys = ZIMAGE_LAYER_KEYNAMES
+#         all_avoid_keys = ZIMAGE_AVOID_KEY_NAMES + AVOID_KEY_NAMES
+#     elif filter_name == "qwen":
+#         layer_keys = QWEN_LAYER_KEYNAMES
+#         all_avoid_keys = QWEN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
+#     elif filter_name == "hunyuan":
+#         layer_keys = []
+#         all_avoid_keys = HUNYUAN_AVOID_KEY_NAMES + AVOID_KEY_NAMES
+#     elif filter_name == "chroma_l":
+#         layer_keys = CHROMA_LAYER_KEYNAMES_LARGE
+#         all_avoid_keys = AVOID_KEY_NAMES
+#     elif filter_name == "chroma_s":
+#         layer_keys = CHROMA_LAYER_KEYNAMES_SMALL
+#         all_avoid_keys = AVOID_KEY_NAMES
+#     elif filter_name == "nerf_l":
+#         layer_keys = RADIANCE_LAYER_KEYNAMES_LARGE
+#         all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
+#     elif filter_name == "nerf_s":
+#         layer_keys = RADIANCE_LAYER_KEYNAMES_SMALL
+#         all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
+#     elif filter_name == "radiance":
+#         layer_keys = []
+#         all_avoid_keys = AVOID_KEY_NAMES + RADIANCE_AVOID_KEY_NAMES
+#     elif filter_name == "wan":
+#         layer_keys = WAN_LAYER_KEYNAMES
+#         all_avoid_keys = AVOID_KEY_NAMES
+#     else:
+#         # Custom comma-separated list
+#         layer_keys = []
+#         all_avoid_keys = AVOID_KEY_NAMES + [k.strip() for k in filter_name.split(",") if k.strip()]
+# 
+#     return all_avoid_keys, layer_keys
 
 
 def generate_output_filename(

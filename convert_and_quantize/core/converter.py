@@ -201,7 +201,6 @@ def quantize_model(
     seed_generator: Optional[torch.Generator] = None,
     device: Optional[torch.device] = None,
 ):
-    from convert_and_quantize.utils import get_layer_filters
     from safetensors import safe_open
     from convert_and_quantize.constants import (
         AVOID_KEY_NAMES,

@@ -6,7 +6,6 @@ from .core.converter import LearnedRoundingConverter
 from .utils import (
     get_device,
     setup_seed,
-    get_layer_filters,
     get_fp8_constants,
     should_process_layer,
     generate_output_filename,
@@ -24,7 +23,6 @@ __all__ = [
     "LearnedRoundingConverter",
     "get_device",
     "setup_seed",
-    "get_layer_filters",
     "get_fp8_constants",
     "should_process_layer",
     "generate_output_filename",

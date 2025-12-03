@@ -6,7 +6,7 @@ import torch
 from safetensors import safe_open
 from safetensors.torch import save_file
 from .core.converter import LearnedRoundingConverter, quantize_model
-from .utils import get_layer_filters, generate_output_filename
+from .utils import generate_output_filename
 from convert_and_quantize.constants import TARGET_FP8_DTYPE
 
 def test_quantization(
@@ -115,7 +115,6 @@ def quantize_and_save(
         full_matrix=full_matrix,
         seed=manual_seed,
         lr=lr,
-        mem_eff_safe_open=mem_eff_safe_open,
     )
 
     quantized_tensors = quantize_model(
@@ -134,7 +133,7 @@ def quantize_and_save(
         hunyuan=hunyuan,
         zimage_l=zimage_l,
         zimage_s=zimage_s,
-        mem_eff_safe_open=False,
+        mem_eff_safe_open=mem_eff_safe_open,
     )
 
     filter_flags = {
