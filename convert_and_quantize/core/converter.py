@@ -335,6 +335,7 @@ def quantize_model(
 
             if tensor.ndim != 2:
                 print(f"({i+1}/{total_weights}) Skipping tensor: {key} (Reason: Not a 2D tensor)")
+                new_tensors[key] = tensor.to(dtype=COMPUTE_DTYPE).to(device='cpu')
                 continue
 
             print(f"({i+1}/{total_weights}) Processing tensor: {key}")
