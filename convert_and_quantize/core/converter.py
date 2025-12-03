@@ -9,7 +9,7 @@ import math
 from typing import Tuple, Optional
 from convert_and_quantize.constants import TARGET_FP8_DTYPE, COMPUTE_DTYPE, SCALE_DTYPE, T5XXL_REMOVE_KEY_NAMES
 from convert_and_quantize.optimizers import get_optimizer
-from convert_and_quantize.utils import setup_seed
+from convert_and_quantize.utils import setup_seed, MemoryEfficientSafeOpen
 
 
 class LearnedRoundingConverter:
@@ -197,6 +197,7 @@ def quantize_model(
     hunyuan: bool = False,
     zimage_l: bool = False,
     zimage_s: bool = False,
+    mem_eff_safe_open: bool = False,
     seed_generator: Optional[torch.Generator] = None,
     device: Optional[torch.device] = None,
 ):
@@ -220,6 +221,11 @@ def quantize_model(
 
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if not mem_eff_safe_open:
+        open_fn = lambda fn: safe_open(fn, framework="pt", device='cpu')
+    else:
+        open_fn = lambda fn: MemoryEfficientSafeOpen(fn)
+        print("Using memory-efficient safe_open for large models.")
 
     
     new_tensors = {}
@@ -227,7 +233,7 @@ def quantize_model(
     print("Scanning model and generating simulated calibration data...")
     if calib_samples > 0:
         try:
-            with safe_open(model_path, framework="pt", device='cpu') as f:
+            with open_fn(model_path) as f:
                 for key in f.keys():
                     if key.endswith(".weight") and f.get_tensor(key).ndim == 2:
                         in_features = f.get_tensor(key).shape[1]

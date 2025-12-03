@@ -7,12 +7,8 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from .core.converter import LearnedRoundingConverter, quantize_model
 from .utils import get_layer_filters, generate_output_filename
-from convert_and_quantize.constants import (
-    TARGET_FP8_DTYPE,
-    COMPUTE_DTYPE,
-    SCALE_DTYPE,
-    T5XXL_REMOVE_KEY_NAMES,
-)
+from convert_and_quantize.constants import TARGET_FP8_DTYPE
+
 def test_quantization(
     model_path: str,
     num_iter: int,
@@ -31,6 +27,7 @@ def test_quantization(
     hunyuan: bool,
     zimage_l: bool,
     zimage_s: bool,
+    mem_eff_safe_open: bool = False,
 ):
     converter = LearnedRoundingConverter(
         optimizer=optimizer,
@@ -56,6 +53,7 @@ def test_quantization(
         hunyuan=hunyuan,
         zimage_l=zimage_l,
         zimage_s=zimage_s,
+        mem_eff_safe_open=mem_eff_safe_open,
     )
 
     original_tensors = {}
@@ -104,6 +102,7 @@ def quantize_and_save(
     hunyuan: bool,
     zimage_l: bool,
     zimage_s: bool,
+    mem_eff_safe_open: bool = False,
 ):
     converter = LearnedRoundingConverter(
         optimizer=optimizer,
@@ -134,6 +133,7 @@ def quantize_and_save(
         hunyuan=hunyuan,
         zimage_l=zimage_l,
         zimage_s=zimage_s,
+        mem_eff_safe_open=False,
     )
 
     filter_flags = {
@@ -175,13 +175,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Common arguments
-    filter_choices = ['zimage', 'qwen', 'hunyuan', 'chroma_l', 'chroma_s', 'nerf_l', 'nerf_s', 'radiance', 'wan']
-    filter_help = (
-        "Layer exclusion filter preset.\n"
-        "Pre-defined choices: \n"
-        f"  {', '.join(filter_choices)}\n"
-        "Can also be a custom comma-separated list of layer names to exclude."
-    )
+    # filter_help = "A custom comma-separated list of layer names to exclude."
 
     # Test command
     test_parser = subparsers.add_parser("test", help="Test quantization and report error metrics without saving.")
@@ -202,6 +196,7 @@ def main():
     test_parser.add_argument("--hunyuan", action='store_true', help="Exclude known Hunyuan Video 1.5 layers.")
     test_parser.add_argument("--zimage_l", action='store_true', help="Exclude known Z-Image layers.")
     test_parser.add_argument("--zimage_s", action='store_true', help="Exclude known Z-Image layers.")
+    test_parser.add_argument("--mem-eff-safe-open", action='store_true', help="Use memory-efficient safe_open for large models.")
 
     # Save command
     save_parser = subparsers.add_parser("save", help="Quantize a model and save the result to a new file.")
@@ -229,6 +224,7 @@ def main():
     save_parser.add_argument("--hunyuan", action='store_true', help="Exclude known Hunyuan Video 1.5 layers.")
     save_parser.add_argument("--zimage_l", action='store_true', help="Exclude known Z-Image layers.")
     save_parser.add_argument("--zimage_s", action='store_true', help="Exclude known Z-Image layers.")
+    save_parser.add_argument("--mem-eff-safe-open", action='store_true', help="Use memory-efficient safe_open for large models.")
 
     args = parser.parse_args()
 
@@ -251,6 +247,7 @@ def main():
             hunyuan=args.hunyuan,
             zimage_l=args.zimage_l,
             zimage_s=args.zimage_s,
+            mem_eff_safe_open=args.mem_eff_safe_open,
         )
     elif args.command == "save":
         quantize_and_save(
@@ -278,6 +275,7 @@ def main():
             hunyuan=args.hunyuan,
             zimage_l=args.zimage_l,
             zimage_s=args.zimage_s,
+            mem_eff_safe_open=args.mem_eff_safe_open,
         )
 
 if __name__ == "__main__":
