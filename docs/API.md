@@ -3,6 +3,7 @@
 Complete API documentation for the Convert and Quantize library.
 
 ## Table of Contents
+
 - [Core Classes](#core-classes)
 - [Utility Functions](#utility-functions)
 - [Constants](#constants)
@@ -205,7 +206,7 @@ generator = setup_seed(seed, device=None)
 ```python
 from convert_and_quantize import setup_seed
 
-gen = setup_seed(42)
+gen = setup_seed(-1)
 random_tensor = torch.randn(10, 10, generator=gen)
 ```
 
@@ -402,7 +403,7 @@ from convert_and_quantize import (
 
 # Setup
 device = get_device()
-generator = setup_seed(42)
+generator = setup_seed(-1)
 
 # Create converter
 converter = LearnedRoundingConverter(

@@ -591,7 +591,7 @@ def main():
     parser.add_argument("--scaling_mode", type=str, default="tensor", choices=["tensor", "block"], help="Quantization scaling mode.")
     parser.add_argument("--block_size", type=int, default=64, help="Block size for 'block' scaling mode.")
     parser.add_argument("--calib_samples", type=int, default=3072, help="Number of random samples for bias correction.")
-    parser.add_argument("--manual_seed", type=int, default=42, help="Set a manual seed for reproducibility. Use -1 for random.")
+    parser.add_argument("--manual_seed", type=int, default=-1, help="Set a manual seed for reproducibility. Use -1 for random.")
     parser.add_argument("--optimizer", type=str, default="original", choices=["original", "adamw", "ppsf", "radam"], help="Optimization algorithm.")
     parser.add_argument("--num_iter", type=int, default=500, help="Total optimization iterations per tensor.")
     parser.add_argument("--lr", type=float, default=1e-2, help="[AdamW/RAdam/Original] Initial learning rate.")

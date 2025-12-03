@@ -18,7 +18,6 @@ This package requires PyTorch. For CUDA support, you must install it separately 
 
 ### 1. Install PyTorch
 
-
 You can use a requirements file from the `requirements/` directory that matches your CUDA version, or use `cpu.txt` for a CPU-only installation.
 or you can use the index-url flag for CUDA version.
 
@@ -180,7 +179,7 @@ Set up reproducible random seed.
 
 ```python
 from convert_and_quantize import setup_seed
-generator = setup_seed(seed=42)
+generator = setup_seed(seed=-1)
 ```
 
 ## Supported Models

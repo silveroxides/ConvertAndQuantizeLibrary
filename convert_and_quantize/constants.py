@@ -52,12 +52,12 @@ RADIANCE_AVOID_KEY_NAMES = ["img_in_patch", "nerf_final_layer_conv"]
 # These layers are kept in high precision (scale_weight = 1.0, not quantized)
 
 # Distillation layers for Chroma model
-DISTILL_LAYER_KEYNAMES_LARGE = ["distilled_guidance_layer", "final_layer", "img_in", "txt_in"]
-DISTILL_LAYER_KEYNAMES_SMALL = ["distilled_guidance_layer"]
+CHROMA_LAYER_KEYNAMES_LARGE = ["distilled_guidance_layer", "final_layer", "img_in", "txt_in"]
+CHROMA_LAYER_KEYNAMES_SMALL = ["distilled_guidance_layer"]
 
-# NeRF layers (variants for different configurations)
-NERF_LAYER_KEYNAMES_LARGE = ["distilled_guidance_layer", "nerf_blocks", "nerf_image_embedder", "txt_in"]
-NERF_LAYER_KEYNAMES_SMALL = ["distilled_guidance_layer", "nerf_blocks", "nerf_image_embedder"]
+# Radiance layers (variants for different configurations)
+RADIANCE_LAYER_KEYNAMES_LARGE = ["distilled_guidance_layer", "nerf_blocks", "nerf_image_embedder", "txt_in"]
+RADIANCE_LAYER_KEYNAMES_SMALL = ["distilled_guidance_layer", "nerf_blocks", "nerf_image_embedder"]
 
 # WAN (Waymo) layers
 WAN_LAYER_KEYNAMES = [

@@ -17,6 +17,7 @@ pip install convert-and-quantize
 ### 2. Installation with Optional Dependencies
 
 #### ProdigyPlus Optimizer Support
+
 ProdigyPlus is an advanced optimizer that can provide better quantization quality at the cost of additional computation.
 
 ```bash
@@ -24,6 +25,7 @@ pip install convert-and-quantize[prodigy]
 ```
 
 #### Development Setup
+
 For development and testing:
 
 ```bash
@@ -31,6 +33,7 @@ pip install convert-and-quantize[dev]
 ```
 
 #### All Features
+
 Install everything including optional dependencies:
 
 ```bash
@@ -77,11 +80,13 @@ print("Quantization successful!")
 ## System Requirements
 
 ### Minimum Requirements
+
 - 4GB RAM
 - CUDA 11.0+ (for GPU acceleration, recommended)
 - PyTorch with CUDA support
 
 ### Recommended Requirements
+
 - 8GB+ RAM
 - CUDA 12.0+
 - GPU with at least 8GB VRAM for processing large models
@@ -90,8 +95,8 @@ print("Quantization successful!")
 
 This library benefits significantly from GPU acceleration. To use GPU:
 
-1. Install CUDA Toolkit (version 11.0 or later)
-2. Install PyTorch with CUDA support:
+- Install CUDA Toolkit (version 11.0 or later)
+- Install PyTorch with CUDA support:
 
 ```bash
 # For CUDA 11.8
@@ -101,7 +106,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-3. Verify CUDA is available:
+- Verify CUDA is available:
 
 ```python
 import torch
@@ -112,6 +117,7 @@ print(torch.cuda.get_device_name(0))
 ## Troubleshooting
 
 ### PyTorch Version Compatibility
+
 If you encounter issues with FP8 support, ensure you have a compatible PyTorch version:
 
 ```python
@@ -121,6 +127,7 @@ print(f"CUDA available: {torch.cuda.is_available()}")
 ```
 
 ### FP8 Support Check
+
 Not all hardware supports FP8. Check if your system supports it:
 
 ```python
@@ -135,6 +142,7 @@ except RuntimeError as e:
 ```
 
 ### CUDA Out of Memory
+
 If you encounter CUDA memory errors:
 
 1. Reduce `num_iter` in the converter
@@ -143,6 +151,7 @@ If you encounter CUDA memory errors:
 4. Ensure no other GPU processes are running
 
 ### ProdigyPlus Installation Issues
+
 If ProdigyPlus fails to install, it's optional and the library will work without it:
 
 ```python
@@ -175,6 +184,7 @@ pip uninstall convert-and-quantize
 ## Next Steps
 
 After installation, check out:
+
 - [Quick Start Guide](./QUICKSTART.md) for basic usage
 - [Examples](../examples/) for practical code samples
 - [API Reference](./API.md) for detailed documentation

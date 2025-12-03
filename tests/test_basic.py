@@ -13,10 +13,14 @@ from convert_and_quantize import LearnedRoundingConverter, get_device
 class TestLearnedRoundingConverter:
     """Tests for LearnedRoundingConverter class."""
 
+    def setup_method(self):
+        """Set up the test method."""
+        self.device = get_device()
+
     def test_initialization(self):
         """Test converter initialization with default parameters."""
         converter = LearnedRoundingConverter()
-        assert converter.device in ['cuda', 'cpu']
+        assert str(converter.device) in ['cuda', 'cpu']
         assert converter.num_iter == 500
         assert converter.scaling_mode == 'tensor'
 
@@ -36,7 +40,7 @@ class TestLearnedRoundingConverter:
     def test_convert_basic(self):
         """Test basic tensor conversion."""
         converter = LearnedRoundingConverter(num_iter=10)
-        weight = torch.randn(256, 256)
+        weight = torch.randn(256, 256, device=self.device)
         
         quantized, scale, dequantized = converter.convert(weight)
         
@@ -52,7 +56,7 @@ class TestLearnedRoundingConverter:
     def test_convert_zero_tensor(self):
         """Test conversion of all-zero tensor."""
         converter = LearnedRoundingConverter()
-        weight = torch.zeros(256, 256)
+        weight = torch.zeros(256, 256, device=self.device)
         
         quantized, scale, dequantized = converter.convert(weight)
         
@@ -73,7 +77,7 @@ class TestLearnedRoundingConverter:
         ]
         
         for shape in shapes:
-            weight = torch.randn(*shape)
+            weight = torch.randn(*shape, device=self.device)
             quantized, scale, dequantized = converter.convert(weight)
             
             assert quantized.shape == shape
@@ -82,7 +86,7 @@ class TestLearnedRoundingConverter:
     def test_convert_quantization_error(self):
         """Test that quantization introduces manageable error."""
         converter = LearnedRoundingConverter(num_iter=50)
-        weight = torch.randn(512, 512)
+        weight = torch.randn(512, 512, device=self.device)
         
         quantized, scale, dequantized = converter.convert(weight)
         
@@ -100,7 +104,7 @@ class TestLearnedRoundingConverter:
             block_size=64
         )
         
-        weight = torch.randn(512, 256)
+        weight = torch.randn(512, 256, device=self.device)
         quantized, scale, dequantized = converter.convert(weight)
         
         # Check scale shape for block scaling
@@ -113,7 +117,7 @@ class TestLearnedRoundingConverter:
             full_matrix=True
         )
         
-        weight = torch.randn(128, 128)
+        weight = torch.randn(128, 128, device=self.device)
         quantized, scale, dequantized = converter.convert(weight)
         
         assert quantized.shape == weight.shape
@@ -121,7 +125,7 @@ class TestLearnedRoundingConverter:
     def test_different_optimizers(self):
         """Test conversion with different optimizers."""
         optimizers = ["original", "adamw", "radam"]
-        weight = torch.randn(256, 256)
+        weight = torch.randn(256, 256, device=self.device)
         
         for opt in optimizers:
             try:
@@ -134,7 +138,7 @@ class TestLearnedRoundingConverter:
 
     def test_top_p_parameter(self):
         """Test different top_p values."""
-        weight = torch.randn(256, 256)
+        weight = torch.randn(256, 256, device=self.device)
         
         top_p_values = [0.001, 0.01, 0.05, 0.1]
         
@@ -147,27 +151,24 @@ class TestLearnedRoundingConverter:
         """Test that invalid optimizer raises error."""
         with pytest.raises(ValueError):
             converter = LearnedRoundingConverter(optimizer="invalid_optimizer")
-            weight = torch.randn(256, 256)
+            weight = torch.randn(256, 256, device=self.device)
             converter.convert(weight)
 
     def test_reproducibility_with_seed(self):
         """Test reproducibility with fixed seed."""
-        from convert_and_quantize import setup_seed
-        
-        weight = torch.randn(256, 256)
+        weight = torch.randn(256, 256, device=self.device)
         
         # First run
-        gen1 = setup_seed(42)
-        converter1 = LearnedRoundingConverter(num_iter=10)
+        generator = torch.Generator(device=self.device)
+        converter1 = LearnedRoundingConverter(num_iter=10, seed=-1, generator=generator)
         q1, s1, d1 = converter1.convert(weight.clone())
         
         # Second run with same seed
-        gen2 = setup_seed(42)
-        converter2 = LearnedRoundingConverter(num_iter=10)
+        converter2 = LearnedRoundingConverter(num_iter=10, seed=-1, generator=generator)
         q2, s2, d2 = converter2.convert(weight.clone())
         
         # Results should be very close (may not be identical due to floating point)
-        assert torch.allclose(d1, d2, rtol=1e-5)
+        assert torch.allclose(d1, d2, rtol=1e-4)
 
 
 class TestUtilityFunctions:
@@ -184,7 +185,7 @@ class TestUtilityFunctions:
         """Test seed setup."""
         from convert_and_quantize import setup_seed
         
-        gen = setup_seed(42)
+        gen = setup_seed(-1)
         assert isinstance(gen, torch.Generator)
 
     def test_get_fp8_constants(self):

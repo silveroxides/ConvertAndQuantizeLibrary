@@ -117,6 +117,7 @@ save_file(new_tensors, "model_fp8.safetensors")
 ## Configuration Tips
 
 ### For Speed (Quick Prototyping)
+
 ```python
 converter = LearnedRoundingConverter(
     optimizer="original",
@@ -126,6 +127,7 @@ converter = LearnedRoundingConverter(
 ```
 
 ### For Quality (Production)
+
 ```python
 converter = LearnedRoundingConverter(
     optimizer="adamw",  # More stable
@@ -137,6 +139,7 @@ converter = LearnedRoundingConverter(
 ```
 
 ### Balanced (Recommended Default)
+
 ```python
 converter = LearnedRoundingConverter(
     optimizer="adamw",
@@ -162,7 +165,7 @@ print(f"Using device: {device}")
 ```python
 from convert_and_quantize import setup_seed
 
-generator = setup_seed(seed=42)
+generator = setup_seed(seed=-1)
 ```
 
 ### Get Constants
@@ -176,6 +179,7 @@ print(f"FP8 range: [{FP8_MIN}, {FP8_MAX}]")
 ## Troubleshooting
 
 ### CUDA Out of Memory
+
 ```python
 # Reduce iterations or switch to tensor scaling
 converter = LearnedRoundingConverter(
@@ -185,6 +189,7 @@ converter = LearnedRoundingConverter(
 ```
 
 ### Poor Quantization Quality
+
 ```python
 # Increase iterations and use better optimizer
 converter = LearnedRoundingConverter(
@@ -195,6 +200,7 @@ converter = LearnedRoundingConverter(
 ```
 
 ### Slow Quantization
+
 ```python
 # Make it faster
 converter = LearnedRoundingConverter(
