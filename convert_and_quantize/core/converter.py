@@ -184,7 +184,6 @@ class LearnedRoundingConverter:
 def quantize_model(
     model_path: str,
     converter: LearnedRoundingConverter,
-    exclude_layers: str,
     calib_samples: int = 0,
     manual_seed: int = -1,
     t5xxl: bool = False,
@@ -222,7 +221,6 @@ def quantize_model(
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    all_avoid_keys, layer_keys = get_layer_filters(exclude_layers)
     
     new_tensors = {}
     calibration_data_cache = {}

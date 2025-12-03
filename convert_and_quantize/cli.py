@@ -16,7 +16,6 @@ from convert_and_quantize.constants import (
 def test_quantization(
     model_path: str,
     num_iter: int,
-    exclude_layers: str,
     optimizer: str,
     block_size: int,
     full_matrix: bool,
@@ -45,7 +44,6 @@ def test_quantization(
     quantized_tensors = quantize_model(
         model_path=model_path,
         converter=converter,
-        exclude_layers=exclude_layers,
         manual_seed=manual_seed,
         t5xxl=t5xxl,
         chroma_large=chroma_large,
@@ -84,7 +82,6 @@ def test_quantization(
 def quantize_and_save(
     model_path: str,
     num_iter: int,
-    exclude_layers: str,
     output: str,
     scaling_mode: str,
     min_k: int,
@@ -124,7 +121,6 @@ def quantize_and_save(
     quantized_tensors = quantize_model(
         model_path=model_path,
         converter=converter,
-        exclude_layers=exclude_layers,
         calib_samples=calib_samples,
         manual_seed=manual_seed,
         t5xxl=t5xxl,
@@ -139,13 +135,29 @@ def quantize_and_save(
         zimage_l=zimage_l,
         zimage_s=zimage_s,
     )
+
+    filter_flags = {
+        "t5xxl": t5xxl,
+        "chroma_large": chroma_large,
+        "chroma_small": chroma_small,
+        "radiance_large": radiance_large,
+        "radiance_small": radiance_small,
+        "radiance": radiance,
+        "wan": wan,
+        "qwen": qwen,
+        "hunyuan": hunyuan,
+        "zimage_l": zimage_l,
+        "zimage_s": zimage_s,
+    }
+    active_filter_names = [name for name, is_active in filter_flags.items() if is_active]
+    filter_tag = "_".join(active_filter_names) if active_filter_names else "no_filter"
     
     if not output:
         output = generate_output_filename(
             model_path,
             TARGET_FP8_DTYPE,
             scaling_mode,
-            exclude_layers,
+            filter_tag,
             min_k,
             max_k,
             top_p,
@@ -175,7 +187,6 @@ def main():
     test_parser = subparsers.add_parser("test", help="Test quantization and report error metrics without saving.")
     test_parser.add_argument("model_path", help="Path to the .safetensors model file.")
     test_parser.add_argument("--num-iter", type=int, default=50, help="Number of optimization iterations per tensor.")
-    test_parser.add_argument("--exclude-layers", type=str, default="zimage", help=filter_help)
     test_parser.add_argument("--optimizer", type=str, default="original", choices=["original", "adamw", "radam"], help="Optimizer to use.")
     test_parser.add_argument("--block-size", type=int, default=64, help="Block size for 'block' scaling mode.")
     test_parser.add_argument("--full-matrix", action="store_true", help="Use full SVD matrix.")
@@ -197,7 +208,6 @@ def main():
     save_parser.add_argument("model_path", help="Path to the .safetensors model file.")
     save_parser.add_argument("--output", type=str, default=None, help="Output file path. If not provided, it will be auto-generated.")
     save_parser.add_argument("--num-iter", type=int, default=50, help="Number of optimization iterations per tensor.")
-    save_parser.add_argument("--exclude-layers", type=str, default="zimage", help=filter_help)
     save_parser.add_argument("--scaling-mode", type=str, default="tensor", choices=["tensor", "block"], help="Scaling mode for quantization.")
     save_parser.add_argument("--min-k", type=int, default=256, help="Minimum number of SVD components.")
     save_parser.add_argument("--max-k", type=int, default=768, help="Maximum number of SVD components.")
@@ -226,7 +236,6 @@ def main():
         test_quantization(
             model_path=args.model_path,
             num_iter=args.num_iter,
-            exclude_layers=args.exclude_layers,
             optimizer=args.optimizer,
             block_size=args.block_size,
             full_matrix=args.full_matrix,
@@ -247,7 +256,6 @@ def main():
         quantize_and_save(
             model_path=args.model_path,
             num_iter=args.num_iter,
-            exclude_layers=args.exclude_layers,
             output=args.output,
             scaling_mode=args.scaling_mode,
             min_k=args.min_k,
