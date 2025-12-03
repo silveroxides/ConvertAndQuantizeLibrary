@@ -9,7 +9,7 @@ import math
 from typing import Tuple, Optional
 from convert_and_quantize.constants import TARGET_FP8_DTYPE, COMPUTE_DTYPE, SCALE_DTYPE, T5XXL_REMOVE_KEY_NAMES
 from convert_and_quantize.optimizers import get_optimizer
-from convert_and_quantize.utils.util_functions import setup_seed
+from convert_and_quantize.utils import setup_seed
 
 
 class LearnedRoundingConverter:

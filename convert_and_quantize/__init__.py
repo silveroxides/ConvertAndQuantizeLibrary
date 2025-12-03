@@ -3,7 +3,7 @@ This module exposes the core components of the Convert and Quantize library.
 """
 
 from .core.converter import LearnedRoundingConverter
-from .utils.util_functions import (
+from .utils import (
     get_device,
     setup_seed,
     get_fp8_constants,
